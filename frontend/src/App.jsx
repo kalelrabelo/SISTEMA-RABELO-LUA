@@ -105,18 +105,13 @@ function App() {
     checkAuth();
   }, []);
 
-  const handleLogin = (loginData) => {
+  const handleLogin = (userData, token) => {
     setIsAuthenticated(true)
+    setUser(userData)
+    setToken(token)
     
-    // Se vier do NetflixLogin, o formato pode ser diferente
-    if (loginData.user) {
-      setUser(loginData.user || loginData.username)
-      setToken(loginData.token || 'local-token')
-    } else {
-      // Formato antigo do Login normal
-      setUser(loginData)
-      setToken(loginData.token || 'local-token')
-    }
+    // Configurar axios com o token correto
+    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
   }
 
   const handleLogout = () => {
@@ -318,10 +313,10 @@ function App() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-gray-400 text-sm flex items-center gap-2">
+                  <div className="text-gray-400 text-sm flex items-center gap-2">
                     <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                     Vendas do Mês
-                  </p>
+                  </div>
                   <p className="text-2xl font-bold text-green-400 font-mono">R$ 75.000</p>
                   <p className="text-xs text-green-300/60 mt-1">↑ 12% vs mês anterior</p>
                 </div>
@@ -337,10 +332,10 @@ function App() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-gray-400 text-sm flex items-center gap-2">
+                  <div className="text-gray-400 text-sm flex items-center gap-2">
                     <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
                     Peças em Estoque
-                  </p>
+                  </div>
                   <p className="text-2xl font-bold text-blue-400 font-mono">1,234</p>
                   <p className="text-xs text-blue-300/60 mt-1">Crítico: 23 itens</p>
                 </div>
@@ -356,10 +351,10 @@ function App() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-gray-400 text-sm flex items-center gap-2">
+                  <div className="text-gray-400 text-sm flex items-center gap-2">
                     <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"></div>
                     Clientes Ativos
-                  </p>
+                  </div>
                   <p className="text-2xl font-bold text-purple-400 font-mono">89</p>
                   <p className="text-xs text-purple-300/60 mt-1">+5 novos hoje</p>
                 </div>
@@ -375,10 +370,10 @@ function App() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-gray-400 text-sm flex items-center gap-2">
+                  <div className="text-gray-400 text-sm flex items-center gap-2">
                     <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
                     Encomendas
-                  </p>
+                  </div>
                   <p className="text-2xl font-bold text-orange-400 font-mono">15</p>
                   <p className="text-xs text-orange-300/60 mt-1">3 urgentes</p>
                 </div>

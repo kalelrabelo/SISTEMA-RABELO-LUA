@@ -14,12 +14,19 @@
 - **Menus Removidos**: Removido Prazos, Relatórios Joias e Desconto conforme solicitado
 - **Erro materials.filter**: Corrigido verificação de arrays nos componentes
 - **Credenciais de Acesso**: Corrigido no iniciar_windows.bat para usar usuários corretos
+- **Erros 401 UNAUTHORIZED**: Corrigido autenticação JWT entre frontend e backend
+- **Erro de Hidratação HTML**: Corrigido estrutura inválida (div dentro de p)
+- **Login Component**: Corrigido URL da API para apontar para o backend correto
 
 ### ✨ Novas Funcionalidades Implementadas
-- **🤖 IA Jarvis "LUA"**: Assistente virtual por comando de voz
-  - Ativação: Diga "Lua" para ativar a assistente
-  - Navegação por voz para todos os módulos do sistema
-  - Interface futurista com animações e efeitos visuais
+- **🤖 IA Jarvis "LUA" APRIMORADA**: Assistente virtual por comando de voz
+  - **Interface Compacta**: Botão menor posicionado no canto direito inferior
+  - **Voz Feminina Robotizada**: Estilo Jarvis com tom grave e robótico
+  - **Respostas Formais**: "Olá senhor", "Como posso ajudá-lo", "Às suas ordens"
+  - **Escuta Contínua**: Continua ouvindo mesmo enquanto fala
+  - **Ativação Flexível**: Responde a "Lua", "Lúa" ou "Lia"
+  - **Navegação Completa**: Acesso a todos os módulos por comando de voz
+  - **Interface Futurista**: Animações e efeitos visuais aprimorados
   
 - **📊 Dashboard Futurista**: Interface renovada com visual estilo Jarvis
   - Gráficos interativos com gradientes e animações
@@ -146,18 +153,26 @@ npm run dev
 ```
 
 ## 🌐 URLs de Acesso
-- **Frontend**: http://localhost:5173
+
+### Desenvolvimento Local
+- **Frontend**: http://localhost:5173 ou http://localhost:3000
 - **Backend API**: http://localhost:5000
 - **GitHub**: https://github.com/kalelrabelo/sistema-rabelo
+
+### Deploy Sandbox (Temporário)
+- **Sistema Completo**: https://3000-i0x20c2o6e8qcd4g8n9sw-6532622b.e2b.dev
+- **Backend API**: http://localhost:5000 (interno ao sandbox)
+- **Status**: ✅ Sistema funcionando e testado
 
 ## 🔐 Credenciais de Acesso (Corrigidas)
 
 ### Usuários do Sistema
-- **rabeloce** - Senha: `luciace`
-- **darvince** - Senha: `luciace`  
-- **luciace** - Senha: `luciace`
+- **Antonio Rabelo** - Username: `rabeloce` - Senha: `rabeloce`
+- **Antonio Darvin** - Username: `darvince` - Senha: `darvince`  
+- **Maria Lucia** - Username: `luciace` - Senha: `luciace`
+- **Admin** - Username: `admin` - Senha: `admin`
 
-*Todas as senhas foram corrigidas para 'luciace' conforme solicitado*
+*Credenciais corrigidas para usar senhas individuais por usuário*
 
 ## 💎 Funcionalidades Principais
 

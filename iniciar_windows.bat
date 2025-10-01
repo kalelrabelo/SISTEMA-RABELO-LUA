@@ -102,9 +102,9 @@ echo                    CREDENCIAIS DE ACESSO
 echo ============================================================
 echo.
 echo  Usuarios do Sistema:
-echo    rabeloce - Senha: luciace
-echo    darvince - Senha: luciace
-echo    luciace  - Senha: luciace
+echo    Antonio Rabelo - Senha: rabeloce
+echo    Antonio Darvin - Senha: darvince
+echo    Maria Lucia   - Senha: luciace
 echo.
 echo ============================================================
 echo.
