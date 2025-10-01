@@ -21,32 +21,32 @@ const NetflixLogin = ({ onLogin }) => {
     {
       id: 1,
       name: 'Antonio Rabelo',
-      username: 'admin',
+      username: 'Antonio Rabelo',
       avatar: '/images/admins/rabelo.png',
       defaultAvatar: '👤',
       color: 'bg-blue-600',
       isOwner: true,
-      password: 'admin123'
+      password: 'rabloce'  // Senha correta
     },
     {
       id: 2,
-      name: 'Darvin Rabelo',
-      username: 'funcionario',
+      name: 'Antonio Darvin',
+      username: 'Antonio Darvin',
       avatar: '/images/admins/darvin.jpg',
       defaultAvatar: '👤',
       color: 'bg-green-600',
-      isOwner: false,
-      password: 'func123'
+      isOwner: true,
+      password: 'darvince'  // Senha correta
     },
     {
       id: 3,
-      name: 'Maria Lúcia',
-      username: 'admin',
+      name: 'Maria Lucia',
+      username: 'Maria Lucia',
       avatar: null,
       defaultAvatar: '👩',
       color: 'bg-purple-600',
-      isOwner: false,
-      password: 'admin123'
+      isOwner: true,
+      password: 'luciace'  // Senha correta
     }
   ];
 

@@ -59,6 +59,12 @@ from src.routes.enhanced_employee import enhanced_employee_bp
 from src.routes.dashboard import dashboard_bp
 from src.routes.ai_assistant import ai_bp  # Rota da IA Lua
 from src.routes.ai_assistant_enhanced import ai_enhanced_bp  # Rota da IA Lua Melhorada
+try:
+    from src.routes.ai_voice import ai_voice_bp  # Rota do sistema de voz
+    AI_VOICE_AVAILABLE = True
+except ImportError:
+    print("⚠️ Sistema de voz não disponível")
+    AI_VOICE_AVAILABLE = False
 
 app = Flask(__name__)
 
@@ -265,6 +271,8 @@ app.register_blueprint(dashboard_bp, url_prefix="/api")
 app.register_blueprint(customers_bp, url_prefix="/api")
 app.register_blueprint(ai_bp, url_prefix="/api")  # Registrar rotas da IA
 app.register_blueprint(ai_enhanced_bp, url_prefix="/api")  # Registrar rotas da IA melhorada
+if AI_VOICE_AVAILABLE:
+    app.register_blueprint(ai_voice_bp, url_prefix="/api/voice")  # Registrar rotas do sistema de voz
 app.register_blueprint(sizes_bp, url_prefix="/api") # Registrar rota sizes_bp
 
 # Registrar rotas aprimoradas

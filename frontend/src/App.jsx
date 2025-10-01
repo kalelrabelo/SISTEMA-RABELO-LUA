@@ -41,7 +41,7 @@ import Notas from './components/Notas.jsx';
 import ErrosAoColar from './components/ErrosAoColar.jsx';
 import ErrorLogger from './components/ErrorLogger.jsx';
 import errorLogger from './services/errorLogger.js';
-import JarvisAI from './components/JarvisAI.jsx';
+import JarvisAI from './components/JarvisAI_Enhanced.jsx';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -720,8 +720,18 @@ function App() {
         <main className="flex-1 overflow-y-auto bg-gray-900">
           {renderContent()}
           
-          {/* Jarvis AI Assistant */}
-          <JarvisAI onCommand={(page) => setCurrentPage(page)} />
+          {/* Jarvis AI Assistant Enhanced */}
+          <JarvisAI 
+            onCommand={(page) => setCurrentPage(page)}
+            onModalOpen={(module, filters) => {
+              // Abrir o módulo com filtros específicos
+              setCurrentPage(module);
+              // Se houver filtros, passar para o componente
+              if (filters) {
+                console.log('Abrindo módulo', module, 'com filtros:', filters);
+              }
+            }}
+          />
         </main>
       </div>
     </div>

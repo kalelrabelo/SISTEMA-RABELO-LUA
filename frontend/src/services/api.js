@@ -2,6 +2,7 @@ import axios from 'axios'
 import errorLogger from './errorLogger'
 
 // Use relative URLs to use Vite proxy
+// As rotas já têm /api no início, não precisamos adicionar base URL
 const API_BASE_URL = ''
 
 // Create axios instance with default config

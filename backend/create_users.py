@@ -18,32 +18,27 @@ def create_default_users():
         # Criar tabelas se não existirem
         db.create_all()
         
-        # Usuários padrão
+        # Usuários padrão - APENAS OS 3 ADMINISTRADORES AUTORIZADOS
         users_data = [
             {
-                'username': 'rabeloce',
+                'username': 'Antonio Rabelo',
                 'email': 'antonio@rabelo.com',
-                'password': 'rabeloce',
+                'password': 'rabloce',  # Corrigido para 'rabloce'
                 'is_admin': True
             },
             {
-                'username': 'darvince',
+                'username': 'Antonio Darvin',
                 'email': 'darvin@rabelo.com', 
                 'password': 'darvince',
                 'is_admin': True
             },
             {
-                'username': 'luciace',
+                'username': 'Maria Lucia',
                 'email': 'lucia@rabelo.com',
                 'password': 'luciace',
                 'is_admin': True
-            },
-            {
-                'username': 'admin',
-                'email': 'admin@rabelo.com',
-                'password': 'admin',
-                'is_admin': True
             }
+            # REMOVIDO usuário 'admin' - NÃO AUTORIZADO
         ]
         
         for user_data in users_data:

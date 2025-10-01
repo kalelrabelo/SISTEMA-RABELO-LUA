@@ -14,6 +14,7 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  publicDir: 'public',
   server: {
     host: '0.0.0.0',
     port: 5173,
@@ -31,6 +32,25 @@ export default defineConfig({
     },
     watch: {
       usePolling: true,
+    },
+    fs: {
+      // Allow serving files from public directory
+      strict: false,
+      allow: ['..']
+    }
+  },
+  build: {
+    // Ensure images are included in build
+    assetsInlineLimit: 0,
+    rollupOptions: {
+      output: {
+        assetFileNames: (assetInfo) => {
+          if (/\.(png|jpg|jpeg|gif|svg|webp)$/i.test(assetInfo.name)) {
+            return 'images/[name]-[hash][extname]';
+          }
+          return 'assets/[name]-[hash][extname]';
+        }
+      }
     }
   }
 })
