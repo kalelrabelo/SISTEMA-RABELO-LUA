@@ -1,0 +1,9 @@
+Flask==2.3.3
+flask-cors==4.0.0
+Flask-SQLAlchemy==3.0.5
+PyJWT==2.8.0
+bcrypt==4.0.1
+python-dotenv==1.0.0
+sqlalchemy==2.0.21
+Werkzeug==2.3.7
+pathlib==1.0.1
