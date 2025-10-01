@@ -57,7 +57,8 @@ from src.routes.sizes import sizes_bp # Importar rota sizes_bp
 from src.routes.enhanced_jewelry import enhanced_jewelry_bp
 from src.routes.enhanced_employee import enhanced_employee_bp
 from src.routes.dashboard import dashboard_bp
-from src.routes.ai_assistant import ai_bp  # Nova rota da IA Lua
+from src.routes.ai_assistant import ai_bp  # Rota da IA Lua
+from src.routes.ai_assistant_enhanced import ai_enhanced_bp  # Rota da IA Lua Melhorada
 
 app = Flask(__name__)
 
@@ -72,7 +73,9 @@ DATA_DIR.mkdir(exist_ok=True)  # Criar pasta data se não existir
 DATABASE_PATH = DATA_DIR / 'joalheria.db'
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{str(DATABASE_PATH)}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = 'antonio_rabelo_joalheria_2025_jwt_secret'
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-change-me')
+if app.config['SECRET_KEY'] == 'dev-secret-change-me':
+    print("⚠️  WARNING: Using default SECRET_KEY. Set SECRET_KEY environment variable for production!")
 
 # Inicializar extensões
 db.init_app(app)
@@ -261,12 +264,54 @@ app.register_blueprint(financial_bp, url_prefix="/api")
 app.register_blueprint(dashboard_bp, url_prefix="/api")
 app.register_blueprint(customers_bp, url_prefix="/api")
 app.register_blueprint(ai_bp, url_prefix="/api")  # Registrar rotas da IA
+app.register_blueprint(ai_enhanced_bp, url_prefix="/api")  # Registrar rotas da IA melhorada
 app.register_blueprint(sizes_bp, url_prefix="/api") # Registrar rota sizes_bp
 
 # Registrar rotas aprimoradas
 app.register_blueprint(enhanced_jewelry_bp, url_prefix="/api")
 app.register_blueprint(enhanced_employee_bp, url_prefix="/api")
 
+
+def create_or_get_user(username, email, password, is_admin=True):
+    """Criar ou obter usuário existente, evitando duplicatas por username OU email"""
+    try:
+        # Verificar se usuário já existe por username OU email
+        existing_user = User.query.filter(
+            (User.username == username) | (User.email == email)
+        ).first()
+        
+        if existing_user:
+            print(f"✅ Usuário já existe: {existing_user.username} ({existing_user.email})")
+            return existing_user
+        
+        # Criar novo usuário
+        new_user = User(
+            username=username,
+            email=email,
+            password_hash=hash_password(password),
+            is_admin=is_admin
+        )
+        
+        db.session.add(new_user)
+        db.session.commit()  # Commit isolado por usuário
+        
+        print(f"✅ Usuário criado: {username} ({email})")
+        return new_user
+        
+    except Exception as e:
+        print(f"❌ Erro ao criar usuário {username}: {str(e)}")
+        db.session.rollback()  # Rollback em caso de erro
+        
+        # Tentar obter usuário existente após rollback
+        existing_user = User.query.filter(
+            (User.username == username) | (User.email == email)
+        ).first()
+        
+        if existing_user:
+            print(f"✅ Usuário já existente obtido após rollback: {existing_user.username}")
+            return existing_user
+        
+        raise e
 
 # Função de inicialização do banco
 def init_database():
@@ -277,111 +322,39 @@ def init_database():
             db.create_all()
             print(f"✅ Banco de dados criado em: {DATABASE_PATH}")
 
-            # Criar usuários administradores corretos
+            # Criar usuários administradores usando helper robusto
+            print("🔧 Criando usuários administradores...")
             
-            # Antonio Rabelo
-            antonio_user = User.query.filter_by(username='Antonio Rabelo').first()
-            if not antonio_user:
-                antonio_user = User(
-                    username='Antonio Rabelo',
-                    email='antonio@antoniorabelo.com',
-                    password_hash=hash_password('rabeloce'),
-                    is_admin=True
-                )
-                db.session.add(antonio_user)
-                print("✅ Usuário Antonio Rabelo criado (Antonio Rabelo/rabeloce)")
-
-            # Darvin Rabelo
-            darvin_user = User.query.filter_by(username='Darvin Rabelo').first()
-            if not darvin_user:
-                darvin_user = User(
-                    username='Darvin Rabelo',
-                    email='darvin@antoniorabelo.com',
-                    password_hash=hash_password('darvince'),
-                    is_admin=True
-                )
-                db.session.add(darvin_user)
-                print("✅ Usuário Darvin Rabelo criado (Darvin Rabelo/darvince)")
-
-            # Maria Lucia
-            maria_user = User.query.filter_by(username='Maria Lucia').first()
-            if not maria_user:
-                maria_user = User(
-                    username='Maria Lucia',
-                    email='maria@antoniorabelo.com',
-                    password_hash=hash_password('luciace'),
-                    is_admin=True
-                )
-                db.session.add(maria_user)
-                print("✅ Usuário Maria Lucia criado (Maria Lucia/luciace)")
+            # Antonio Rabelo - Usuário mestre
+            create_or_get_user(
+                username='Antonio Rabelo',
+                email='antonio@antoniorabelo.com', 
+                password='rabloce'
+            )
+            
+            # Antonio Darvin - Segundo administrador  
+            create_or_get_user(
+                username='Antonio Darvin',
+                email='darvin@antoniorabelo.com',
+                password='darvince'
+            )
+            
+            # Maria Lucia - Terceira administradora
+            create_or_get_user(
+                username='Maria Lucia', 
+                email='maria@antoniorabelo.com',
+                password='luciace'
+            )
 
             # Sistema configurado apenas com os 3 administradores da família Rabelo
-            # Não criar usuários de teste extras
-
-            # Criar alguns funcionários de teste
-            from src.models.employee import Employee
+            # NÃO criar dados de teste automáticos
+            # Todos os dados devem ser inseridos manualmente pelos usuários
             
-            # Verificar se já existem funcionários
-            if Employee.query.count() == 0:
-                employees_data = [
-                    {'name': 'Josemir Silva', 'cpf': '123.456.789-00', 'role': 'Vendedor', 
-                     'phone': '(85) 98765-4321', 'email': 'josemir@joalheria.com', 'salary': 2500.00},
-                    {'name': 'Maria Santos', 'cpf': '987.654.321-00', 'role': 'Gerente', 
-                     'phone': '(85) 98765-1234', 'email': 'maria@joalheria.com', 'salary': 4500.00},
-                    {'name': 'João Costa', 'cpf': '456.789.123-00', 'role': 'Ourives', 
-                     'phone': '(85) 98765-5678', 'email': 'joao@joalheria.com', 'salary': 3500.00}
-                ]
-                
-                for emp_data in employees_data:
-                    emp = Employee(**emp_data)
-                    db.session.add(emp)
-                
-                print("✅ Funcionários de teste criados")
+            print("✅ Sistema inicializado com os 3 administradores autorizados:")
+            print("   - Antonio Rabelo (rabloce)")
+            print("   - Antonio Darvin (darvince)")
+            print("   - Maria Lucia (luciace)")
 
-            # Criar alguns vales de teste para Josemir
-            from src.models.vale import Vale
-            
-            if Vale.query.count() == 0:
-                josemir = Employee.query.filter_by(name='Josemir Silva').first()
-                if josemir:
-                    vales_data = [
-                        {'employee_id': josemir.id, 'amount': 150.00, 
-                         'reason': 'Vale para almoço', 'status': 'pending'},
-                        {'employee_id': josemir.id, 'amount': 200.00, 
-                         'reason': 'Vale transporte', 'status': 'approved'},
-                        {'employee_id': josemir.id, 'amount': 300.00, 
-                         'reason': 'Vale emergencial', 'status': 'approved'}
-                    ]
-                    
-                    for vale_data in vales_data:
-                        vale = Vale(**vale_data)
-                        db.session.add(vale)
-                    
-                    print("✅ Vales de teste criados para Josemir")
-
-            # Criar alguns clientes de teste
-            from src.models.customer import Customer
-            
-            if Customer.query.count() == 0:
-                customers_data = [
-                    {'name': 'Ana Paula Silva', 'cpf_cnpj': '111.222.333-44', 
-                     'phone': '(85) 99999-1111', 'email': 'ana@email.com',
-                     'address': 'Rua das Flores, 123'},
-                    {'name': 'Carlos Alberto', 'cpf_cnpj': '555.666.777-88', 
-                     'phone': '(85) 99999-2222', 'email': 'carlos@email.com',
-                     'address': 'Av. Principal, 456'},
-                    {'name': 'Beatriz Lima', 'cpf_cnpj': '999.888.777-66', 
-                     'phone': '(85) 99999-3333', 'email': 'beatriz@email.com',
-                     'address': 'Rua do Comércio, 789'}
-                ]
-                
-                for cust_data in customers_data:
-                    cust = Customer(**cust_data)
-                    db.session.add(cust)
-                
-                print("✅ Clientes de teste criados")
-
-            db.session.commit()
             print("✅ Banco de dados inicializado com sucesso!")
             return True
 
