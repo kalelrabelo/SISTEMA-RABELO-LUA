@@ -57,6 +57,8 @@ function App() {
     vendas: false,
     outros: false
   })
+  const [modalFilters, setModalFilters] = useState(null)
+  const [modalAutoOpen, setModalAutoOpen] = useState(false)
 
   // Verificar autenticação ao carregar o app
   useEffect(() => {
@@ -198,57 +200,73 @@ function App() {
     }
   ]
 
+  const handleModalOpen = (module, filters = {}) => {
+    setCurrentPage(module)
+    setModalFilters(filters)
+    setModalAutoOpen(true)
+    
+    // Reset após um breve delay para permitir que o componente processe
+    setTimeout(() => {
+      setModalAutoOpen(false)
+    }, 1000)
+  }
+
   const renderContent = () => {
+    const commonProps = {
+      filters: modalFilters,
+      autoOpen: modalAutoOpen
+    }
+    
     switch (currentPage) {
       case 'clientes':
-        return <Clientes />
+        return <Clientes {...commonProps} />
       case 'funcionarios':
-        return <FuncionariosEnhanced />
+        return <FuncionariosEnhanced {...commonProps} />
       case 'padroes':
-        return <Padroes />
+        return <Padroes {...commonProps} />
       case 'joias':
-        return <JoiasEnhanced />
+        return <JoiasEnhanced {...commonProps} />
       case 'materiais':
-        return <Materiais />
+        return <Materiais {...commonProps} />
       case 'pedras':
-        return <JoiasPedras />
+        return <JoiasPedras {...commonProps} />
       case 'tamanhos':
-        return <JoiasTamanhos />
+        return <JoiasTamanhos {...commonProps} />
 
       case 'caixa':
-        return <Caixa />
+        return <Caixa {...commonProps} />
       case 'custos':
-        return <Custos />
+        return <Custos {...commonProps} />
 
       case 'entradas':
-        return <Entradas />
+        return <Entradas {...commonProps} />
       case 'impostos':
-        return <Impostos />
+        return <Impostos {...commonProps} />
       case 'vales':
-        return <Vales />
+        return <Vales {...commonProps} />
       case 'folha-pagamento':
-        return <FolhaPagamento />
+        return <FolhaPagamento {...commonProps} />
       case 'pagamentos':
-        return <Pagamentos />
+        return <Pagamentos {...commonProps} />
 
       case 'encomendas':
-        return <Encomendas />
+        return <Encomendas {...commonProps} />
       case 'encomendas-joias':
-        return <EncomendasJoias />
+        return <EncomendasJoias {...commonProps} />
       case 'estoque':
-        return <Estoque />
+        return <Estoque {...commonProps} />
       case 'estoque-filtros':
-        return <EstoqueFiltros />
+        return <EstoqueFiltros {...commonProps} />
       case 'cartas':
-        return <Cartas />
+        return <Cartas {...commonProps} />
       case 'notas':
-        return <Notas />
+        return <Notas {...commonProps} />
       case 'erros':
-        return <ErrosAoColar />
+        return <ErrosAoColar {...commonProps} />
       case 'log-erros':
-        return <ErrorLogger />
+        return <ErrorLogger {...commonProps} />
       default:
-        return <Dashboard />
+        return <Dashboard {...commonProps} />
     }
   }
 
@@ -723,14 +741,7 @@ function App() {
           {/* Jarvis AI Assistant Enhanced */}
           <JarvisAI 
             onCommand={(page) => setCurrentPage(page)}
-            onModalOpen={(module, filters) => {
-              // Abrir o módulo com filtros específicos
-              setCurrentPage(module);
-              // Se houver filtros, passar para o componente
-              if (filters) {
-                console.log('Abrindo módulo', module, 'com filtros:', filters);
-              }
-            }}
+            onModalOpen={handleModalOpen}
           />
         </main>
       </div>

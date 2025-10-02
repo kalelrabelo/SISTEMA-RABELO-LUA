@@ -28,9 +28,11 @@ try:
     from TTS.api import TTS
     from TTS.utils.synthesizer import Synthesizer
     from TTS.utils.manage import ModelManager
+    from TTS.tts.configs.xtts_config import XttsConfig
 except ImportError:
     print("⚠️  Coqui TTS não instalado. Usando fallback para gTTS...")
     TTS = None
+    XttsConfig = None
 
 try:
     from pydub import AudioSegment
@@ -110,8 +112,15 @@ class VoiceEngine:
                 import os
                 os.environ['COQUI_TOS_AGREED'] = '1'
                 
+                # Configurar torch safe globals para XTTS v2 (PyTorch 2.6+ compatibility)
+                if TORCH_AVAILABLE and XttsConfig:
+                    torch.serialization.add_safe_globals([XttsConfig])
+                    print("✅ Torch safe globals configurado para XTTS v2")
+                
                 self.tts_model = TTS(models["multi_speaker"], progress_bar=True)
                 self.tts_model.to(self.device)
+                
+                print("✅ XTTS v2 carregado com sucesso - voice cloning habilitado!")
                 
                 # Processar voz de referência do Jarvis
                 if self.jarvis_voice_path.exists():
@@ -125,15 +134,11 @@ class VoiceEngine:
                     print(f"⚠️ Arquivo de voz do Jarvis não encontrado em: {self.jarvis_voice_path}")
                     
             except Exception as e:
-                print(f"⚠️ Erro ao carregar XTTS v2: {str(e)}")
-                # Fallback para modelo português
-                try:
-                    print("📥 Usando modelo português alternativo...")
-                    self.tts_model = TTS(models["portuguese"], progress_bar=True)
-                    self.tts_model.to(self.device)
-                except Exception as e2:
-                    print(f"⚠️ Erro no modelo português: {str(e2)}")
-                    print("⚠️ Nenhum modelo TTS disponível. Usando apenas gTTS.")
+                print(f"❌ Erro crítico ao carregar XTTS v2: {str(e)}")
+                print("❌ XTTS v2 é OBRIGATÓRIO - não usar VITS de baixa qualidade")
+                # Não usar fallback VITS - preferir gTTS otimizado
+                print("📥 Usando fallback gTTS otimizado para qualidade superior")
+                self.tts_model = None  # Forçar uso do gTTS otimizado
                     
         except Exception as e:
             print(f"❌ Erro ao inicializar TTS: {str(e)}")
@@ -208,11 +213,18 @@ class VoiceEngine:
                     )
                 except Exception as clone_error:
                     print(f"⚠️ Erro no voice cloning: {clone_error}")
-                    # Fallback para modelo padrão
-                    self.tts_model.tts_to_file(
-                        text=text,
-                        file_path=str(output_path)
-                    )
+                    print("❌ XTTS v2 falhou - NÃO usar fallback VITS para manter qualidade")
+                    # Tentar novamente sem speaker_wav (XTTS sem cloning)
+                    try:
+                        self.tts_model.tts_to_file(
+                            text=text,
+                            language="pt",
+                            file_path=str(output_path)
+                        )
+                        print("✅ XTTS v2 funcionando sem cloning")
+                    except Exception as xtts_error:
+                        print(f"❌ XTTS v2 completamente inoperante: {xtts_error}")
+                        return None  # Não usar VITS fallback
                 
             elif self.tts_model:
                 # Usar modelo padrão sem voice cloning
@@ -241,6 +253,7 @@ class VoiceEngine:
                         )
                 except Exception as model_error:
                     print(f"⚠️ Erro no modelo TTS: {model_error}")
+                    print("❌ Modelo TTS falhou - usando fallback controlado")
                     return self._generate_gtts_fallback(text, output_path)
                 
             else:

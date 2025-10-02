@@ -43,11 +43,27 @@ class AIAssistant:
     @staticmethod
     def extract_name(text, prefix_words=['para', 'de', 'do', 'da']):
         """Extrai nome de pessoa do texto"""
-        for prefix in prefix_words:
-            pattern = f'{prefix}\\s+([A-Za-zÀ-ÿ\\s]+?)(?:\\s+(?:com|no|na|de|para|$))'
+        # Tentar padrões mais flexíveis
+        patterns = [
+            # "para Darvin", "de Josemir"
+            r'(?:para|de|do|da)\s+([A-Za-zÀ-ÿ]+(?:\s+[A-Za-zÀ-ÿ]+)?)',
+            # "Darvin receber", "dar para Darvin"
+            r'([A-Za-zÀ-ÿ]+(?:\s+[A-Za-zÀ-ÿ]+)?)\s+(?:receber|ganhar)',
+            # No final da frase
+            r'(?:para|de|do|da)\s+([A-Za-zÀ-ÿ]+(?:\s+[A-Za-zÀ-ÿ]+)?)$',
+            # Sem preposição, pegar primeiro nome próprio
+            r'\b([A-Z][a-zÀ-ÿ]+(?:\s+[A-Z][a-zÀ-ÿ]+)?)\b'
+        ]
+        
+        for pattern in patterns:
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
-                return match.group(1).strip()
+                name = match.group(1).strip()
+                # Filtrar palavras comuns que não são nomes
+                exclude_words = ['vale', 'reais', 'real', 'dinheiro', 'criar', 'fazer', 'dar', 'pagar']
+                if name.lower() not in exclude_words and len(name) > 2:
+                    return name
+        
         return None
     
     @staticmethod

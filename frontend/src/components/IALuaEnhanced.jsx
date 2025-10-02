@@ -16,6 +16,7 @@ import {
   MicOff 
 } from 'lucide-react'
 import axios from 'axios'
+import { playAudio } from '../utils/audioUtils'
 
 const IALuaEnhanced = ({ onModalOpen }) => {
   const [messages, setMessages] = useState([
@@ -88,32 +89,25 @@ const IALuaEnhanced = ({ onModalOpen }) => {
     }
   }
 
-  const playAudio = (audioBase64) => {
+  const playLuaAudio = async (audioBase64) => {
     if (!voiceEnabled || !audioBase64) return
 
     try {
-      // Criar blob de áudio a partir do base64
-      const audioBlob = new Blob(
-        [Uint8Array.from(atob(audioBase64), c => c.charCodeAt(0))],
-        { type: 'audio/wav' }
-      )
-      const audioUrl = URL.createObjectURL(audioBlob)
-      
-      // Criar novo elemento de áudio
-      const audio = new Audio(audioUrl)
-      audio.volume = 0.8
-      
-      // Tocar áudio
-      audio.play().catch(e => console.error('Erro ao reproduzir áudio:', e))
-      
-      // Limpar URL quando terminar
-      audio.onended = () => {
-        URL.revokeObjectURL(audioUrl)
-      }
-      
-      setCurrentAudio(audio)
+      await playAudio(audioBase64, {
+        onStart: () => {
+          console.log('🎤 LUA iniciou a fala no chat');
+        },
+        onEnd: () => {
+          console.log('✅ LUA terminou de falar no chat');
+          setCurrentAudio(null);
+        },
+        onError: (error) => {
+          console.error('❌ Erro na reprodução da voz da LUA (chat):', error);
+          setCurrentAudio(null);
+        }
+      });
     } catch (error) {
-      console.error('Erro ao processar áudio:', error)
+      console.error('❌ Erro ao processar áudio da LUA:', error);
     }
   }
 
@@ -225,7 +219,7 @@ const IALuaEnhanced = ({ onModalOpen }) => {
       
       // Tocar áudio se disponível
       if (response.data.audio && voiceEnabled) {
-        playAudio(response.data.audio)
+        await playLuaAudio(response.data.audio)
       }
       
       // Processar resposta para abrir modais relevantes

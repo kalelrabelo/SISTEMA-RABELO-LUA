@@ -19,14 +19,19 @@
 - **Login Component**: Corrigido URL da API para apontar para o backend correto
 
 ### ✨ Novas Funcionalidades Implementadas
-- **🤖 IA Jarvis "LUA" APRIMORADA**: Assistente virtual por comando de voz
-  - **Interface Compacta**: Botão menor posicionado no canto direito inferior
-  - **Voz Feminina Robotizada**: Estilo Jarvis com tom grave e robótico
-  - **Respostas Formais**: "Olá senhor", "Como posso ajudá-lo", "Às suas ordens"
-  - **Escuta Contínua**: Continua ouvindo mesmo enquanto fala
-  - **Ativação Flexível**: Responde a "Lua", "Lúa" ou "Lia"
-  - **Navegação Completa**: Acesso a todos os módulos por comando de voz
-  - **Interface Futurista**: Animações e efeitos visuais aprimorados
+- **🎙️ IA LUA COM VOZ JARVIS**: Sistema de voz completamente integrado
+  - **Voz Clonada do Jarvis/Iron Man**: Usa arquivo `jarvis_voice.mp3` via Coqui TTS
+  - **Backend TTS API**: Endpoints `/api/voice/speak`, `/api/voice/status`
+  - **Fallback Inteligente**: Google speechSynthesis se backend indisponível
+  - **Comandos CRUD por Voz**: Criar, editar, deletar registros via linguagem natural
+  - **Exemplos de Comandos**: 
+    - "Lua registrar vale de 200 reais para João"
+    - "Lua editar vale do Roberto para 300 reais"
+    - "Lua deletar vale número 15"
+    - "Lua mostrar vales desta semana"
+  - **Modal Auto-Open**: Formulários abrem automaticamente com dados preenchidos
+  - **Processamento NLP**: Extrai nomes, valores, datas e IDs dos comandos
+  - **Interface Futurista**: Indicador visual mostra "Voz Jarvis" vs "Voz Browser"
   
 - **📊 Dashboard Futurista**: Interface renovada com visual estilo Jarvis
   - Gráficos interativos com gradientes e animações

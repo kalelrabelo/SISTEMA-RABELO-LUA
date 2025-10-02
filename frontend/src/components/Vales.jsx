@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Pencil, Trash2, Plus, Search, Calendar, User, DollarSign, FileText, ChevronLeft, ChevronRight, Filter, Printer, Receipt } from 'lucide-react';
 
-function Vales() {
+function Vales({ filters, autoOpen }) {
   const [vales, setVales] = useState([]);
   const [valeEditando, setValeEditando] = useState(null);
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
@@ -33,6 +33,130 @@ function Vales() {
     fetchVales();
     fetchFuncionarios();
   }, []);
+
+  // Processar filtros passados pela LUA
+  useEffect(() => {
+    if (filters && autoOpen) {
+      processLuaFilters(filters);
+    }
+  }, [filters, autoOpen]);
+
+  const processLuaFilters = (luaFilters) => {
+    console.log('Processando filtros da LUA:', luaFilters);
+    
+    // Aplicar filtros de busca
+    if (luaFilters.employee) {
+      setFiltroFuncionario(luaFilters.employee);
+      setTermoBusca(luaFilters.employee);
+    }
+    
+    // Aplicar filtros de período
+    if (luaFilters.period === 'today' || luaFilters.date) {
+      const today = new Date();
+      setFiltroMes((today.getMonth() + 1).toString());
+      setFiltroAno(today.getFullYear().toString());
+    } else if (luaFilters.period === 'week') {
+      const today = new Date();
+      setFiltroMes((today.getMonth() + 1).toString());
+      setFiltroAno(today.getFullYear().toString());
+    } else if (luaFilters.period === 'month') {
+      const today = new Date();
+      setFiltroMes((today.getMonth() + 1).toString());
+      setFiltroAno(today.getFullYear().toString());
+    }
+    
+    // Processar ações específicas
+    if (luaFilters.mode === 'create' && luaFilters.prefill) {
+      setTimeout(() => {
+        handleCreateValeWithPrefill(luaFilters.prefill);
+      }, 500);
+    } else if (luaFilters.mode === 'edit' && luaFilters.employee) {
+      setTimeout(() => {
+        handleEditValeByEmployee(luaFilters.employee, luaFilters.newAmount);
+      }, 500);
+    } else if (luaFilters.mode === 'delete') {
+      if (luaFilters.valeId) {
+        setTimeout(() => {
+          handleDeleteValeById(luaFilters.valeId);
+        }, 500);
+      } else if (luaFilters.employee) {
+        setTimeout(() => {
+          handleDeleteValeByEmployee(luaFilters.employee);
+        }, 500);
+      }
+    }
+  };
+
+  const handleCreateValeWithPrefill = (prefillData) => {
+    // Encontrar funcionário pelo nome
+    const funcionario = funcionarios.find(f => 
+      f.name.toLowerCase().includes(prefillData.funcionario.toLowerCase())
+    );
+    
+    if (funcionario) {
+      setValeEditando({
+        employee_id: funcionario.id,
+        employee_name: funcionario.name,
+        amount: prefillData.valor || '',
+        date: new Date().toISOString().split('T')[0],
+        description: prefillData.descricao || 'Vale solicitado via IA'
+      });
+      setMostrarFormulario(true);
+    } else {
+      alert(`Funcionário "${prefillData.funcionario}" não encontrado. Abrindo formulário vazio.`);
+      handleNovoVale();
+    }
+  };
+
+  const handleEditValeByEmployee = (employeeName, newAmount) => {
+    const valesDoFuncionario = vales.filter(v => 
+      v.employee_name && v.employee_name.toLowerCase().includes(employeeName.toLowerCase())
+    );
+    
+    if (valesDoFuncionario.length === 1) {
+      const vale = valesDoFuncionario[0];
+      if (newAmount) {
+        vale.amount = newAmount;
+      }
+      setValeEditando(vale);
+      setMostrarFormulario(true);
+    } else if (valesDoFuncionario.length > 1) {
+      alert(`Encontrados ${valesDoFuncionario.length} vales para ${employeeName}. Por favor, selecione um específico.`);
+      setFiltroFuncionario(employeeName);
+    } else {
+      alert(`Nenhum vale encontrado para ${employeeName}.`);
+      setFiltroFuncionario(employeeName);
+    }
+  };
+
+  const handleDeleteValeById = (valeId) => {
+    const vale = vales.find(v => v.id === valeId);
+    if (vale) {
+      if (window.confirm(`Confirma a exclusão do vale de ${vale.employee_name} no valor de ${formatarMoeda(vale.amount)}?`)) {
+        handleExcluirVale(valeId);
+      }
+    } else {
+      alert(`Vale com ID ${valeId} não encontrado.`);
+    }
+  };
+
+  const handleDeleteValeByEmployee = (employeeName) => {
+    const valesDoFuncionario = vales.filter(v => 
+      v.employee_name && v.employee_name.toLowerCase().includes(employeeName.toLowerCase())
+    );
+    
+    if (valesDoFuncionario.length === 1) {
+      const vale = valesDoFuncionario[0];
+      if (window.confirm(`Confirma a exclusão do vale de ${vale.employee_name} no valor de ${formatarMoeda(vale.amount)}?`)) {
+        handleExcluirVale(vale.id);
+      }
+    } else if (valesDoFuncionario.length > 1) {
+      alert(`Encontrados ${valesDoFuncionario.length} vales para ${employeeName}. Por favor, selecione um específico.`);
+      setFiltroFuncionario(employeeName);
+    } else {
+      alert(`Nenhum vale encontrado para ${employeeName}.`);
+    }
+  };
 
   useEffect(() => {
     let filtrados = (Array.isArray(vales) ? vales : []).filter(vale => {

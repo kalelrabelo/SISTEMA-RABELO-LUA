@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Mic, MicOff, Volume2, VolumeX, Sparkles, Brain, Zap, Activity, X } from 'lucide-react';
 import axios from 'axios';
+import { playAudio } from '../utils/audioUtils';
 
 const JarvisAI = ({ onCommand, onModalOpen }) => {
   const [isListening, setIsListening] = useState(false);
@@ -13,6 +14,7 @@ const JarvisAI = ({ onCommand, onModalOpen }) => {
   const [isMinimized, setIsMinimized] = useState(true);
   const [commandHistory, setCommandHistory] = useState([]);
   const [speechSupported, setSpeechSupported] = useState(false);
+  const [backendVoiceAvailable, setBackendVoiceAvailable] = useState(false);
   
   const recognitionRef = useRef(null);
   const synthRef = useRef(window.speechSynthesis);
@@ -38,7 +40,25 @@ const JarvisAI = ({ onCommand, onModalOpen }) => {
     };
     
     checkSpeechSupport();
+    checkBackendVoiceStatus();
   }, []);
+
+  // Verificar status do backend de voz
+  const checkBackendVoiceStatus = async () => {
+    try {
+      const response = await axios.get('/api/voice/status');
+      if (response.data.success && response.data.engine_loaded) {
+        setBackendVoiceAvailable(true);
+        console.log('✅ Backend de voz disponível:', response.data.status.engine);
+      } else {
+        setBackendVoiceAvailable(false);
+        console.log('⚠️ Backend de voz não disponível, usando fallback');
+      }
+    } catch (error) {
+      setBackendVoiceAvailable(false);
+      console.log('⚠️ Erro ao verificar backend de voz:', error.message);
+    }
+  };
 
   // Inicializar reconhecimento de voz com tratamento de erros melhorado
   useEffect(() => {
@@ -56,14 +76,11 @@ const JarvisAI = ({ onCommand, onModalOpen }) => {
       recognitionRef.current.onstart = () => {
         setIsListening(true);
         setStatus(isActive ? 'Escutando comandos...' : 'Aguardando ativação...');
-        console.log('Reconhecimento de voz iniciado');
       };
       
       recognitionRef.current.onend = () => {
         setIsListening(false);
-        console.log('Reconhecimento de voz encerrado');
         
-        // Reiniciar apenas se não estivermos processando
         if (!isProcessingRef.current && speechSupported) {
           setTimeout(() => {
             if (recognitionRef.current && !isListening) {
@@ -91,7 +108,6 @@ const JarvisAI = ({ onCommand, onModalOpen }) => {
           if (fullTranscript) {
             setTranscript(fullTranscript);
             
-            // Verificar ativação com mais variações
             const activationWords = ['lua', 'lúa', 'lia', 'luá', 'luar'];
             const transcriptLower = fullTranscript.toLowerCase();
             
@@ -109,7 +125,6 @@ const JarvisAI = ({ onCommand, onModalOpen }) => {
       recognitionRef.current.onerror = (event) => {
         console.error('Erro no reconhecimento de voz:', event.error);
         
-        // Tratar erros específicos
         switch(event.error) {
           case 'network':
             setStatus('Erro de rede - verifique sua conexão');
@@ -128,13 +143,11 @@ const JarvisAI = ({ onCommand, onModalOpen }) => {
             setStatus(`Erro: ${event.error}`);
         }
         
-        // Tentar reiniciar após erro (exceto permissão negada)
         if (event.error !== 'not-allowed' && speechSupported) {
           setTimeout(() => startListening(), 2000);
         }
       };
       
-      // Iniciar escuta automática
       startListening();
     } catch (error) {
       console.error('Erro ao configurar reconhecimento de voz:', error);
@@ -205,11 +218,8 @@ const JarvisAI = ({ onCommand, onModalOpen }) => {
     
     try {
       recognitionRef.current.start();
-      console.log('Tentando iniciar reconhecimento de voz');
     } catch (error) {
-      if (error.message && error.message.includes('already started')) {
-        console.log('Reconhecimento já está em execução');
-      } else {
+      if (!error.message?.includes('already started')) {
         console.error('Erro ao iniciar reconhecimento:', error);
       }
     }
@@ -219,7 +229,6 @@ const JarvisAI = ({ onCommand, onModalOpen }) => {
     if (recognitionRef.current && isListening) {
       try {
         recognitionRef.current.stop();
-        console.log('Parando reconhecimento de voz');
       } catch (error) {
         console.error('Erro ao parar reconhecimento:', error);
       }
@@ -233,12 +242,10 @@ const JarvisAI = ({ onCommand, onModalOpen }) => {
     setStatus('LUA ativada - Pronta para servir');
     speak('Olá senhor. Sou a LUA, sua assistente virtual. Como posso ajudá-lo hoje?');
     
-    // Adicionar ao histórico
     addToHistory('Sistema', 'LUA ativada');
     
     setTimeout(() => setPulseAnimation(false), 2000);
     
-    // Auto-desativar após 60 segundos de inatividade
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(() => {
       if (isActive) {
@@ -253,7 +260,6 @@ const JarvisAI = ({ onCommand, onModalOpen }) => {
     speak('Estarei aqui quando precisar, senhor. Até logo.');
     setIsMinimized(true);
     
-    // Adicionar ao histórico
     addToHistory('Sistema', 'LUA desativada');
     
     if (timeoutRef.current) {
@@ -261,55 +267,92 @@ const JarvisAI = ({ onCommand, onModalOpen }) => {
     }
   };
 
-  const speak = (text) => {
-    if (!audioEnabled || !synthRef.current) return;
+  // Função speak integrada com backend
+  const speak = async (text) => {
+    if (!audioEnabled) return;
+    
+    isProcessingRef.current = true;
     
     try {
-      // Cancelar falas anteriores
-      synthRef.current.cancel();
-      
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'pt-BR';
-      utterance.rate = 0.95;
-      utterance.pitch = 0.9;
-      utterance.volume = 0.9;
-      
-      // Buscar voz feminina brasileira
-      const voices = synthRef.current.getVoices();
-      const brazilianVoice = voices.find(voice => 
-        voice.lang.includes('pt-BR') && 
-        (voice.name.toLowerCase().includes('female') || 
-         voice.name.toLowerCase().includes('feminina') ||
-         voice.name.includes('Microsoft Maria') ||
-         voice.name.includes('Google português do Brasil'))
-      );
-      
-      if (brazilianVoice) {
-        utterance.voice = brazilianVoice;
+      // Tentar usar backend de voz primeiro
+      if (backendVoiceAvailable) {
+        try {
+          const response = await axios.post('/api/voice/speak', {
+            text: text,
+            emotion: 'confident',
+            format: 'base64'
+          });
+          
+          if (response.data.success && response.data.audio_base64) {
+            await playAudio(response.data.audio_base64, {
+              onStart: () => {
+                console.log('🎤 LUA iniciou a fala');
+                isProcessingRef.current = true;
+              },
+              onEnd: () => {
+                console.log('✅ LUA terminou de falar');
+                isProcessingRef.current = false;
+                if (isActive && !isListening && speechSupported) {
+                  setTimeout(() => startListening(), 500);
+                }
+              },
+              onError: (error) => {
+                console.error('❌ Erro na reprodução da voz da LUA:', error);
+                isProcessingRef.current = false;
+              }
+            });
+            return;
+          }
+        } catch (backendError) {
+          console.warn('Erro no backend de voz:', backendError.message);
+          setBackendVoiceAvailable(false);
+        }
       }
       
-      utterance.onstart = () => {
-        isProcessingRef.current = true;
-      };
-      
-      utterance.onend = () => {
-        isProcessingRef.current = false;
-        if (isActive && !isListening && speechSupported) {
-          setTimeout(() => startListening(), 500);
+      // Fallback para browser speechSynthesis
+      if (synthRef.current) {
+        synthRef.current.cancel();
+        
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'pt-BR';
+        utterance.rate = 0.95;
+        utterance.pitch = 0.9;
+        utterance.volume = 0.9;
+        
+        // Buscar voz feminina brasileira
+        const voices = synthRef.current.getVoices();
+        const brazilianVoice = voices.find(voice => 
+          voice.lang.includes('pt-BR') && 
+          (voice.name.toLowerCase().includes('female') || 
+           voice.name.toLowerCase().includes('feminina') ||
+           voice.name.includes('Microsoft Maria') ||
+           voice.name.includes('Google português do Brasil'))
+        );
+        
+        if (brazilianVoice) {
+          utterance.voice = brazilianVoice;
         }
-      };
-      
-      utterance.onerror = (event) => {
-        console.error('Erro na síntese de voz:', event);
-        isProcessingRef.current = false;
-      };
-      
-      synthRef.current.speak(utterance);
+        
+        utterance.onend = () => {
+          isProcessingRef.current = false;
+          if (isActive && !isListening && speechSupported) {
+            setTimeout(() => startListening(), 500);
+          }
+        };
+        
+        utterance.onerror = () => {
+          isProcessingRef.current = false;
+        };
+        
+        synthRef.current.speak(utterance);
+      }
     } catch (error) {
       console.error('Erro ao falar:', error);
       isProcessingRef.current = false;
     }
   };
+
+
 
   const addToHistory = (type, message) => {
     setCommandHistory(prev => [...prev.slice(-4), { type, message, timestamp: new Date() }]);
@@ -319,10 +362,8 @@ const JarvisAI = ({ onCommand, onModalOpen }) => {
     const lowerCommand = command.toLowerCase();
     isProcessingRef.current = true;
     
-    // Adicionar ao histórico
     addToHistory('Usuário', command);
     
-    // Resetar timeout de inatividade
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(() => {
       if (isActive) deactivateJarvis();
@@ -342,7 +383,12 @@ const JarvisAI = ({ onCommand, onModalOpen }) => {
         return;
       }
 
-      // Comandos de navegação com abertura de modais
+      // Comandos CRUD específicos
+      if (await processCRUDCommand(command)) {
+        return;
+      }
+
+      // Comandos de navegação
       const navigationCommands = [
         { keywords: ['dashboard', 'painel', 'início'], module: 'dashboard', message: 'Acessando o painel principal' },
         { keywords: ['cliente'], module: 'clientes', message: 'Abrindo gestão de clientes' },
@@ -356,25 +402,19 @@ const JarvisAI = ({ onCommand, onModalOpen }) => {
         { keywords: ['estoque', 'inventário'], module: 'estoque', message: 'Acessando controle de estoque' },
         { keywords: ['encomenda', 'pedido'], module: 'encomendas', message: 'Abrindo gestão de encomendas' },
         { keywords: ['folha', 'pagamento', 'salário'], module: 'folha-pagamento', message: 'Acessando folha de pagamento' },
-        { keywords: ['nota', 'notas', 'anotação'], module: 'notas', message: 'Abrindo sistema de notas' },
-        { keywords: ['imposto', 'impostos', 'fiscal'], module: 'impostos', message: 'Acessando gestão fiscal' },
-        { keywords: ['entrada', 'entradas'], module: 'entradas', message: 'Abrindo controle de entradas' }
+        { keywords: ['nota', 'notas', 'anotação'], module: 'notas', message: 'Abrindo sistema de notas' }
       ];
 
-      // Verificar comandos de navegação
       for (const navCmd of navigationCommands) {
         if (navCmd.keywords.some(keyword => lowerCommand.includes(keyword))) {
           speak(`Sim senhor, ${navCmd.message.toLowerCase()}.`);
           addToHistory('LUA', navCmd.message);
           
-          // Chamar callback de navegação
           if (onCommand) {
             onCommand(navCmd.module);
           }
           
-          // Chamar callback de abertura de modal se disponível
           if (onModalOpen) {
-            // Processar filtros específicos do comando
             const filters = extractFilters(command, navCmd.module);
             onModalOpen(navCmd.module, filters);
           }
@@ -384,66 +424,15 @@ const JarvisAI = ({ onCommand, onModalOpen }) => {
         }
       }
 
-      // Comandos específicos com ações
-      if (lowerCommand.includes('criar') || lowerCommand.includes('cadastrar') || lowerCommand.includes('novo')) {
-        // Detectar o que criar
-        if (lowerCommand.includes('vale')) {
-          const employeeName = extractEmployeeName(command);
-          const amount = extractAmount(command);
-          
-          if (employeeName || amount) {
-            await createVale(employeeName, amount, command);
-          } else {
-            speak('Para criar um vale, preciso saber o nome do funcionário e o valor. Por exemplo: "Criar vale de 200 reais para Josemir"');
-            addToHistory('LUA', 'Solicitando informações para criar vale');
-          }
-        } else if (lowerCommand.includes('cliente')) {
-          speak('Para cadastrar um cliente, vou abrir o formulário de cadastro.');
-          if (onModalOpen) {
-            onModalOpen('clientes', { action: 'create' });
-          }
-        } else if (lowerCommand.includes('funcionário') || lowerCommand.includes('funcionario')) {
-          speak('Abrindo formulário de cadastro de funcionário.');
-          if (onModalOpen) {
-            onModalOpen('funcionarios', { action: 'create' });
-          }
-        } else if (lowerCommand.includes('encomenda')) {
-          speak('Iniciando nova encomenda no sistema.');
-          if (onModalOpen) {
-            onModalOpen('encomendas', { action: 'create' });
-          }
-        } else {
-          speak('O que o senhor gostaria de criar? Cliente, funcionário, vale ou encomenda?');
-        }
-        return;
-      }
-
       // Comandos de busca e filtro
       if (lowerCommand.includes('buscar') || lowerCommand.includes('procurar') || lowerCommand.includes('mostrar')) {
         await processSearchCommand(command);
         return;
       }
 
-      // Comandos de relatório
-      if (lowerCommand.includes('relatório') || lowerCommand.includes('relatorio')) {
-        await generateReport(command);
-        return;
-      }
-
-      // Se nenhum comando foi reconhecido, tentar processar via API
-      const apiResponse = await processViaAPI(command);
-      if (apiResponse) {
-        speak(apiResponse.message);
-        addToHistory('LUA', apiResponse.message);
-        
-        // Se a API retornou uma ação, executá-la
-        if (apiResponse.action && onModalOpen) {
-          onModalOpen(apiResponse.module, apiResponse.data);
-        }
-      } else {
-        speak('Desculpe senhor, não compreendi o comando. Poderia reformular?');
-        addToHistory('LUA', 'Comando não compreendido');
-      }
+      // Se nenhum comando foi reconhecido
+      speak('Desculpe senhor, não compreendi o comando. Poderia reformular?');
+      addToHistory('LUA', 'Comando não compreendido');
       
     } catch (error) {
       console.error('Erro ao processar comando:', error);
@@ -455,25 +444,149 @@ const JarvisAI = ({ onCommand, onModalOpen }) => {
     }
   };
 
-  // Funções auxiliares para processar comandos específicos
+  // Processar comandos CRUD
+  const processCRUDCommand = async (command) => {
+    const lowerCommand = command.toLowerCase();
+    
+    // Criar/Cadastrar
+    if (lowerCommand.includes('criar') || lowerCommand.includes('cadastrar') || lowerCommand.includes('registrar')) {
+      if (lowerCommand.includes('vale')) {
+        const employeeName = extractEmployeeName(command);
+        const amount = extractAmount(command);
+        
+        if (employeeName && amount) {
+          const prefillData = {
+            funcionario: employeeName,
+            valor: amount,
+            descricao: extractDescription(command)
+          };
+          
+          speak(`Criando vale de ${amount} reais para ${employeeName}.`);
+          addToHistory('LUA', `Criando vale: ${employeeName} - R$ ${amount}`);
+          
+          if (onModalOpen) {
+            onModalOpen('vales', { 
+              mode: 'create', 
+              prefill: prefillData,
+              autoOpen: true 
+            });
+          }
+          return true;
+        } else {
+          speak('Para criar um vale, preciso do nome do funcionário e o valor. Exemplo: "Lua registrar vale de 200 reais para João"');
+          return true;
+        }
+      }
+      
+      if (lowerCommand.includes('cliente')) {
+        speak('Abrindo formulário para cadastrar novo cliente.');
+        if (onModalOpen) {
+          onModalOpen('clientes', { mode: 'create', autoOpen: true });
+        }
+        return true;
+      }
+    }
+
+    // Editar
+    if (lowerCommand.includes('editar') || lowerCommand.includes('modificar') || lowerCommand.includes('alterar')) {
+      if (lowerCommand.includes('vale')) {
+        const employeeName = extractEmployeeName(command);
+        const amount = extractAmount(command);
+        
+        if (employeeName) {
+          speak(`Procurando vales de ${employeeName} para editar.`);
+          if (onModalOpen) {
+            onModalOpen('vales', { 
+              mode: 'edit', 
+              employee: employeeName,
+              newAmount: amount,
+              autoOpen: true 
+            });
+          }
+          return true;
+        }
+      }
+    }
+
+    // Excluir/Deletar
+    if (lowerCommand.includes('excluir') || lowerCommand.includes('deletar') || lowerCommand.includes('remover')) {
+      if (lowerCommand.includes('vale')) {
+        const valeNumber = extractNumber(command);
+        const employeeName = extractEmployeeName(command);
+        
+        if (valeNumber || employeeName) {
+          speak(`Localizando vale ${valeNumber ? `número ${valeNumber}` : `de ${employeeName}`} para exclusão.`);
+          if (onModalOpen) {
+            onModalOpen('vales', { 
+              mode: 'delete', 
+              valeId: valeNumber,
+              employee: employeeName,
+              autoOpen: true 
+            });
+          }
+          return true;
+        }
+      }
+    }
+
+    return false;
+  };
+
+  // Funções auxiliares para extrair informações dos comandos
+  const extractEmployeeName = (command) => {
+    const patterns = [
+      /(?:para |de |do |da |funcionário |funcionaria )([\w\s]+?)(?:\s|,|$|vale|com|no)/i,
+      /(?:funcionário |funcionaria )([\w\s]+?)(?:\s|,|$)/i
+    ];
+    
+    for (const pattern of patterns) {
+      const match = command.match(pattern);
+      if (match) {
+        return match[1].trim();
+      }
+    }
+    return null;
+  };
+
+  const extractAmount = (command) => {
+    const patterns = [
+      /(?:de |valor de |no valor de )?\s*(?:R\$)?\s*(\d+(?:[.,]\d{1,2})?)\s*(?:reais?)?/i,
+      /(\d+(?:[.,]\d{1,2})?)\s*(?:reais?)/i
+    ];
+    
+    for (const pattern of patterns) {
+      const match = command.match(pattern);
+      if (match) {
+        return parseFloat(match[1].replace(',', '.'));
+      }
+    }
+    return null;
+  };
+
+  const extractNumber = (command) => {
+    const match = command.match(/(?:número |numero |n° |nº )(\d+)/i);
+    return match ? parseInt(match[1]) : null;
+  };
+
+  const extractDescription = (command) => {
+    if (command.includes('almoço')) return 'Vale almoço';
+    if (command.includes('transporte')) return 'Vale transporte';
+    if (command.includes('emergência') || command.includes('emergencia')) return 'Vale emergencial';
+    return 'Vale solicitado via IA';
+  };
+
   const extractFilters = (command, module) => {
     const filters = {};
     const lowerCommand = command.toLowerCase();
     
-    // Extrair nomes de pessoas
-    if (module === 'vales') {
-      const nameMatch = command.match(/(?:de |para |do |da )([\w\s]+?)(?:\s|$)/i);
-      if (nameMatch) {
-        filters.employee = nameMatch[1].trim();
-      }
-    }
-    
-    // Extrair datas
+    // Extrair período temporal
     if (lowerCommand.includes('hoje')) {
+      filters.period = 'today';
       filters.date = new Date().toISOString().split('T')[0];
     } else if (lowerCommand.includes('ontem')) {
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
+      filters.period = 'yesterday';
       filters.date = yesterday.toISOString().split('T')[0];
     } else if (lowerCommand.includes('semana')) {
       filters.period = 'week';
@@ -493,146 +606,19 @@ const JarvisAI = ({ onCommand, onModalOpen }) => {
     return filters;
   };
 
-  const extractEmployeeName = (command) => {
-    const nameMatch = command.match(/(?:para |de |do funcionário |da funcionária )([\w\s]+?)(?:\s|,|$)/i);
-    return nameMatch ? nameMatch[1].trim() : null;
-  };
-
-  const extractAmount = (command) => {
-    const amountMatch = command.match(/(?:de |valor de |no valor de )?\s*(?:R\$)?\s*(\d+(?:[.,]\d{1,2})?)/i);
-    if (amountMatch) {
-      return parseFloat(amountMatch[1].replace(',', '.'));
-    }
-    return null;
-  };
-
-  const createVale = async (employeeName, amount, originalCommand) => {
-    try {
-      const reason = originalCommand.includes('almoço') ? 'Vale almoço' :
-                      originalCommand.includes('transporte') ? 'Vale transporte' :
-                      originalCommand.includes('emergência') || originalCommand.includes('emergencia') ? 'Vale emergencial' :
-                      'Vale solicitado via IA';
-      
-      const response = await axios.post('/api/vales/create-via-ai', {
-        employee_name: employeeName,
-        amount: amount,
-        reason: reason
-      });
-      
-      if (response.data.success) {
-        speak(`Vale criado com sucesso. ${employeeName || 'Funcionário'} receberá ${amount ? `${amount} reais` : 'o valor solicitado'}.`);
-        addToHistory('LUA', `Vale criado: ${employeeName} - R$ ${amount}`);
-        
-        if (onModalOpen) {
-          onModalOpen('vales', { refresh: true });
-        }
-      } else {
-        speak('Não foi possível criar o vale. Verifique os dados e tente novamente.');
-        addToHistory('LUA', 'Erro ao criar vale');
-      }
-    } catch (error) {
-      console.error('Erro ao criar vale:', error);
-      speak('Ocorreu um erro ao criar o vale. Por favor, tente novamente.');
-    }
-  };
-
   const processSearchCommand = async (command) => {
     const lowerCommand = command.toLowerCase();
     
-    try {
-      if (lowerCommand.includes('vale')) {
-        const employeeName = extractEmployeeName(command);
-        if (employeeName) {
-          const response = await axios.get(`/api/vales/search?employee=${employeeName}`);
-          if (response.data.vales && response.data.vales.length > 0) {
-            const total = response.data.vales.reduce((sum, v) => sum + v.amount, 0);
-            speak(`Encontrei ${response.data.vales.length} vales para ${employeeName}, totalizando ${total} reais.`);
-            
-            if (onModalOpen) {
-              onModalOpen('vales', { employee: employeeName });
-            }
-          } else {
-            speak(`Não encontrei vales para ${employeeName}.`);
-          }
-        } else {
-          speak('De qual funcionário o senhor gostaria de ver os vales?');
-        }
-      } else if (lowerCommand.includes('cliente')) {
-        const nameMatch = command.match(/cliente\s+([\w\s]+?)(?:\s|$)/i);
-        if (nameMatch) {
-          if (onModalOpen) {
-            onModalOpen('clientes', { search: nameMatch[1].trim() });
-          }
-          speak(`Buscando cliente ${nameMatch[1].trim()}.`);
-        }
-      } else if (lowerCommand.includes('encomenda') || lowerCommand.includes('pedido')) {
+    if (lowerCommand.includes('vale')) {
+      const employeeName = extractEmployeeName(command);
+      if (employeeName) {
+        speak(`Buscando vales de ${employeeName}.`);
         if (onModalOpen) {
-          const filters = extractFilters(command, 'encomendas');
-          onModalOpen('encomendas', filters);
+          onModalOpen('vales', { employee: employeeName });
         }
-        speak('Abrindo encomendas com os filtros solicitados.');
+      } else {
+        speak('De qual funcionário o senhor gostaria de ver os vales?');
       }
-    } catch (error) {
-      console.error('Erro na busca:', error);
-      speak('Ocorreu um erro durante a busca. Por favor, tente novamente.');
-    }
-  };
-
-  const generateReport = async (command) => {
-    const lowerCommand = command.toLowerCase();
-    
-    try {
-      let reportType = '';
-      let period = 'today';
-      
-      if (lowerCommand.includes('venda')) {
-        reportType = 'sales';
-      } else if (lowerCommand.includes('estoque')) {
-        reportType = 'inventory';
-      } else if (lowerCommand.includes('financeiro')) {
-        reportType = 'financial';
-      } else if (lowerCommand.includes('funcionário') || lowerCommand.includes('funcionario')) {
-        reportType = 'employees';
-      }
-      
-      if (lowerCommand.includes('hoje')) {
-        period = 'today';
-      } else if (lowerCommand.includes('semana')) {
-        period = 'week';
-      } else if (lowerCommand.includes('mês') || lowerCommand.includes('mes')) {
-        period = 'month';
-      }
-      
-      const response = await axios.get(`/api/reports/${reportType}?period=${period}`);
-      
-      if (response.data.success) {
-        speak(`Relatório gerado. ${response.data.summary}`);
-        addToHistory('LUA', `Relatório ${reportType} - ${period}`);
-        
-        if (onModalOpen) {
-          onModalOpen('reports', { type: reportType, data: response.data });
-        }
-      }
-    } catch (error) {
-      console.error('Erro ao gerar relatório:', error);
-      speak('Não foi possível gerar o relatório no momento.');
-    }
-  };
-
-  const processViaAPI = async (command) => {
-    try {
-      const response = await axios.post('/api/lua', {
-        message: command,
-        context: {
-          user: JSON.parse(localStorage.getItem('user') || '{}'),
-          timestamp: new Date().toISOString()
-        }
-      });
-      
-      return response.data;
-    } catch (error) {
-      console.error('Erro na API da LUA:', error);
-      return null;
     }
   };
 
@@ -654,7 +640,9 @@ const JarvisAI = ({ onCommand, onModalOpen }) => {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-green-400' : 'bg-gray-400'} animate-pulse`}></div>
-                <span className="text-blue-300 font-semibold text-sm">LUA - Assistente IA</span>
+                <span className="text-blue-300 font-semibold text-sm">
+                  LUA - {backendVoiceAvailable ? 'Voz Jarvis' : 'Voz Browser'}
+                </span>
               </div>
               <div className="flex gap-1">
                 <button
