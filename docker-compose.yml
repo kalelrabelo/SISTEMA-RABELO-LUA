@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  lua-backend:
+    build: .
+    container_name: lua-tts-system
+    ports:
+      - "8000:8000"
+    environment:
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - USE_GPU=false
+      - LOG_LEVEL=INFO
+      - CORS_ENABLED=true
+    volumes:
+      # Mount for development (optional)
+      - ./backend:/app/backend:ro
+      # Persistent data
+      - lua_models:/app/backend/models
+      - lua_voices:/app/backend/voices
+      - lua_logs:/app/backend/logs
+    restart: unless-stopped
+    networks:
+      - lua-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  lua_models:
+    driver: local
+  lua_voices:
+    driver: local
+  lua_logs:
+    driver: local
+
+networks:
+  lua-network:
+    driver: bridge

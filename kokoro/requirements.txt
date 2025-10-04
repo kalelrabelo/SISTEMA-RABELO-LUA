@@ -1,0 +1,16 @@
+# Kokoro TTS - Com pandas<2.0 para compatibilidade
+tts==0.22.0
+pandas>=1.4,<2.0
+numpy==1.24.4
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+redis==5.2.0
+pydantic==2.9.2
+python-multipart==0.0.12
+aiofiles==24.1.0
+scipy==1.11.4
+librosa==0.10.2
+soundfile==0.12.1
+torch==2.0.1
+torchaudio==2.0.2
+transformers==4.36.2

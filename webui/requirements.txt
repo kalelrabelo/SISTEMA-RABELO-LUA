@@ -1,0 +1,21 @@
+# Open-WebUI com pandas==2.2.3
+open-webui==0.4.7
+pandas==2.2.3
+numpy==1.26.4
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+python-multipart==0.0.12
+sqlalchemy==2.0.35
+chromadb==0.5.21
+langchain==0.3.9
+langchain-community==0.3.8
+sentence-transformers==3.3.1
+bcrypt==4.2.0
+passlib==1.7.4
+python-jose[cryptography]==3.3.0
+aiofiles==24.1.0
+peewee==3.17.8
+psutil==6.1.0
+requests==2.32.3
+pydantic==2.10.3
+pydantic-settings==2.6.1

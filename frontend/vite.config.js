@@ -1,57 +1,19 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
-import path from 'path'
-import { fileURLToPath, URL } from 'url'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-
-// https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(),tailwindcss()],
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-    },
-  },
-  publicDir: 'public',
+  plugins: [react()],
   server: {
-    host: '0.0.0.0',
-    port: 5173,
-    allowedHosts: ['.e2b.dev', 'localhost', '127.0.0.1'],
+    port: 3000,
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        target: 'http://localhost:8000',
         changeOrigin: true,
-        secure: false,
       }
-    },
-    strictPort: true,
-    hmr: {
-      port: 5173,
-    },
-    watch: {
-      usePolling: true,
-    },
-    fs: {
-      // Allow serving files from public directory
-      strict: false,
-      allow: ['..']
     }
   },
   build: {
-    // Ensure images are included in build
-    assetsInlineLimit: 0,
-    rollupOptions: {
-      output: {
-        assetFileNames: (assetInfo) => {
-          if (/\.(png|jpg|jpeg|gif|svg|webp)$/i.test(assetInfo.name)) {
-            return 'images/[name]-[hash][extname]';
-          }
-          return 'assets/[name]-[hash][extname]';
-        }
-      }
-    }
+    outDir: 'dist',
+    sourcemap: true
   }
 })
-

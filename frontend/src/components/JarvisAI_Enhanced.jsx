@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, MicOff, Volume2, VolumeX, Sparkles, Brain, Zap, Activity, X } from 'lucide-react';
+import { Mic, MicOff, Volume2, VolumeX, Sparkles, Brain, Zap, Activity, X, Settings } from 'lucide-react';
 import axios from 'axios';
 import { playAudio } from '../utils/audioUtils';
+import VoiceSelector from './VoiceSelector';
 
 const JarvisAI = ({ onCommand, onModalOpen }) => {
   const [isListening, setIsListening] = useState(false);
@@ -15,6 +16,7 @@ const JarvisAI = ({ onCommand, onModalOpen }) => {
   const [commandHistory, setCommandHistory] = useState([]);
   const [speechSupported, setSpeechSupported] = useState(false);
   const [backendVoiceAvailable, setBackendVoiceAvailable] = useState(false);
+  const [showVoiceSelector, setShowVoiceSelector] = useState(false);
   
   const recognitionRef = useRef(null);
   const synthRef = useRef(window.speechSynthesis);
@@ -277,13 +279,28 @@ const JarvisAI = ({ onCommand, onModalOpen }) => {
       // Tentar usar backend de voz primeiro
       if (backendVoiceAvailable) {
         try {
+          console.log(`🔊 Solicitando áudio para: "${text.substring(0, 50)}..."`);
+          
           const response = await axios.post('/api/voice/speak', {
             text: text,
             emotion: 'confident',
             format: 'base64'
+          }, {
+            timeout: 60000  // Timeout de 60 segundos para geração de áudio
           });
           
           if (response.data.success && response.data.audio_base64) {
+            console.log(`🎵 Áudio recebido: ${response.data.format}, ${response.data.size_bytes || 'unknown'} bytes`);
+            
+            // Pausar reconhecimento antes de tocar áudio
+            if (recognitionRef.current && isListening) {
+              try {
+                recognitionRef.current.stop();
+              } catch (e) {
+                // Ignorar erro se já estiver parado
+              }
+            }
+            
             await playAudio(response.data.audio_base64, {
               onStart: () => {
                 console.log('🎤 LUA iniciou a fala');
@@ -292,8 +309,13 @@ const JarvisAI = ({ onCommand, onModalOpen }) => {
               onEnd: () => {
                 console.log('✅ LUA terminou de falar');
                 isProcessingRef.current = false;
-                if (isActive && !isListening && speechSupported) {
-                  setTimeout(() => startListening(), 500);
+                // Reiniciar reconhecimento após fala
+                if (isActive && speechSupported) {
+                  setTimeout(() => {
+                    if (!isListening && recognitionRef.current) {
+                      startListening();
+                    }
+                  }, 1000);
                 }
               },
               onError: (error) => {
@@ -449,16 +471,18 @@ const JarvisAI = ({ onCommand, onModalOpen }) => {
     const lowerCommand = command.toLowerCase();
     
     // Criar/Cadastrar
-    if (lowerCommand.includes('criar') || lowerCommand.includes('cadastrar') || lowerCommand.includes('registrar')) {
+    if (lowerCommand.includes('criar') || lowerCommand.includes('cadastrar') || lowerCommand.includes('registrar') || lowerCommand.includes('adicionar')) {
       if (lowerCommand.includes('vale')) {
         const employeeName = extractEmployeeName(command);
         const amount = extractAmount(command);
+        const dateInfo = extractDateInfo(command);
         
         if (employeeName && amount) {
           const prefillData = {
             funcionario: employeeName,
             valor: amount,
-            descricao: extractDescription(command)
+            descricao: extractDescription(command),
+            data: dateInfo.date || new Date().toISOString().split('T')[0]
           };
           
           speak(`Criando vale de ${amount} reais para ${employeeName}.`);
@@ -468,7 +492,14 @@ const JarvisAI = ({ onCommand, onModalOpen }) => {
             onModalOpen('vales', { 
               mode: 'create', 
               prefill: prefillData,
-              autoOpen: true 
+              autoOpen: true,
+              callback: (result) => {
+                if (result.success) {
+                  speak(`Vale criado com sucesso. Número ${result.id}.`);
+                } else {
+                  speak('Houve um erro ao criar o vale.');
+                }
+              }
             });
           }
           return true;
@@ -479,21 +510,60 @@ const JarvisAI = ({ onCommand, onModalOpen }) => {
       }
       
       if (lowerCommand.includes('cliente')) {
-        speak('Abrindo formulário para cadastrar novo cliente.');
+        const clientName = extractClientName(command);
+        const prefillData = clientName ? { nome: clientName } : {};
+        
+        speak(`Abrindo formulário para cadastrar ${clientName || 'novo cliente'}.`);
         if (onModalOpen) {
-          onModalOpen('clientes', { mode: 'create', autoOpen: true });
+          onModalOpen('clientes', { 
+            mode: 'create', 
+            prefill: prefillData,
+            autoOpen: true 
+          });
+        }
+        return true;
+      }
+      
+      if (lowerCommand.includes('produto') || lowerCommand.includes('joia')) {
+        speak('Abrindo formulário de cadastro de produto.');
+        if (onModalOpen) {
+          onModalOpen('produtos', { mode: 'create', autoOpen: true });
+        }
+        return true;
+      }
+      
+      if (lowerCommand.includes('venda') || lowerCommand.includes('pedido')) {
+        const clientName = extractClientName(command);
+        const prefillData = clientName ? { cliente: clientName } : {};
+        
+        speak('Abrindo formulário de nova venda.');
+        if (onModalOpen) {
+          onModalOpen('vendas', { 
+            mode: 'create',
+            prefill: prefillData,
+            autoOpen: true 
+          });
         }
         return true;
       }
     }
 
     // Editar
-    if (lowerCommand.includes('editar') || lowerCommand.includes('modificar') || lowerCommand.includes('alterar')) {
+    if (lowerCommand.includes('editar') || lowerCommand.includes('modificar') || lowerCommand.includes('alterar') || lowerCommand.includes('atualizar')) {
       if (lowerCommand.includes('vale')) {
         const employeeName = extractEmployeeName(command);
-        const amount = extractAmount(command);
+        const valeNumber = extractNumber(command);
         
-        if (employeeName) {
+        if (valeNumber) {
+          speak(`Abrindo vale número ${valeNumber} para edição.`);
+          if (onModalOpen) {
+            onModalOpen('vales', { 
+              mode: 'edit',
+              id: valeNumber,
+              autoOpen: true 
+            });
+          }
+        } else if (employeeName) {
           speak(`Procurando vales de ${employeeName} para editar.`);
           if (onModalOpen) {
             onModalOpen('vales', { 
@@ -509,23 +579,191 @@ const JarvisAI = ({ onCommand, onModalOpen }) => {
     }
 
     // Excluir/Deletar
-    if (lowerCommand.includes('excluir') || lowerCommand.includes('deletar') || lowerCommand.includes('remover')) {
+    if (lowerCommand.includes('excluir') || lowerCommand.includes('deletar') || lowerCommand.includes('remover') || lowerCommand.includes('apagar')) {
       if (lowerCommand.includes('vale')) {
         const valeNumber = extractNumber(command);
         const employeeName = extractEmployeeName(command);
         
         if (valeNumber || employeeName) {
-          speak(`Localizando vale ${valeNumber ? `número ${valeNumber}` : `de ${employeeName}`} para exclusão.`);
+          speak(`Localizando vale ${valeNumber ? `número ${valeNumber}` : `de ${employeeName}`} para exclusão. Por favor, confirme a ação.`);
           if (onModalOpen) {
             onModalOpen('vales', { 
               mode: 'delete', 
               valeId: valeNumber,
               employee: employeeName,
-              autoOpen: true 
+              confirmDialog: true,
+              autoOpen: true,
+              callback: (result) => {
+                if (result.success) {
+                  speak('Vale excluído com sucesso.');
+                } else {
+                  speak('Exclusão cancelada.');
+                }
+              }
             });
           }
           return true;
+        } else {
+          speak('Por favor, informe o número do vale ou o nome do funcionário.');
+          return true;
         }
+      }
+      
+      if (lowerCommand.includes('cliente')) {
+        const clientName = extractClientName(command);
+        const clientNumber = extractNumber(command);
+        
+        if (clientNumber || clientName) {
+          const identifier = clientNumber ? `número ${clientNumber}` : clientName;
+          speak(`Confirmando exclusão do cliente ${identifier}. Esta ação não pode ser desfeita.`);
+          if (onModalOpen) {
+            onModalOpen('clientes', { 
+              mode: 'delete',
+              id: clientNumber,
+              search: clientName,
+              confirmDialog: true,
+              autoOpen: true
+            });
+          }
+          return true;
+        } else {
+          speak('Por favor, informe o nome ou número do cliente que deseja excluir.');
+          return true;
+        }
+      }
+    }
+    
+    // Buscar/Listar/Consultar (comandos avançados)
+    if (lowerCommand.includes('buscar') || lowerCommand.includes('procurar') || 
+        lowerCommand.includes('listar') || lowerCommand.includes('mostrar') || 
+        lowerCommand.includes('consultar') || lowerCommand.includes('ver')) {
+      
+      // Buscar vales com filtros avançados
+      if (lowerCommand.includes('vale')) {
+        const employeeName = extractEmployeeName(command);
+        const filters = extractFilters(command, 'vales');
+        
+        let message = 'Buscando vales';
+        if (employeeName) {
+          message += ` de ${employeeName}`;
+        }
+        if (filters.period === 'today') {
+          message += ' de hoje';
+        } else if (filters.period === 'week') {
+          message += ' desta semana';
+        } else if (filters.period === 'month') {
+          message += ' deste mês';
+        } else if (filters.period === 'lastWeek') {
+          message += ' da semana passada';
+        } else if (filters.period === 'lastMonth') {
+          message += ' do mês passado';
+        }
+        if (filters.status) {
+          const statusText = {
+            'pending': 'pendentes',
+            'approved': 'aprovados',
+            'paid': 'pagos',
+            'cancelled': 'cancelados'
+          };
+          message += ` ${statusText[filters.status] || filters.status}`;
+        }
+        
+        speak(message + '.');
+        if (onModalOpen) {
+          onModalOpen('vales', { 
+            search: employeeName,
+            filters: filters,
+            autoOpen: true 
+          });
+        }
+        return true;
+      }
+      
+      // Buscar clientes
+      if (lowerCommand.includes('cliente')) {
+        const clientName = extractClientName(command);
+        const filters = extractFilters(command, 'clientes');
+        
+        let message = clientName ? `Buscando cliente ${clientName}` : 'Listando clientes';
+        if (filters.period) {
+          message += ' cadastrados ' + (filters.period === 'today' ? 'hoje' : 
+                                       filters.period === 'week' ? 'esta semana' : 
+                                       filters.period === 'month' ? 'este mês' : '');
+        }
+        
+        speak(message + '.');
+        if (onModalOpen) {
+          onModalOpen('clientes', { 
+            search: clientName,
+            filters: filters,
+            autoOpen: true 
+          });
+        }
+        return true;
+      }
+      
+      // Buscar vendas/pedidos
+      if (lowerCommand.includes('venda') || lowerCommand.includes('pedido')) {
+        const filters = extractFilters(command, 'vendas');
+        const clientName = extractClientName(command);
+        
+        let message = 'Listando vendas';
+        if (clientName) {
+          message += ` do cliente ${clientName}`;
+        }
+        if (filters.period === 'today') {
+          message += ' de hoje';
+        } else if (filters.period === 'week') {
+          message += ' desta semana';
+        } else if (filters.period === 'month') {
+          message += ' deste mês';
+        }
+        if (filters.status) {
+          message += ` ${filters.status === 'pending' ? 'pendentes' : filters.status === 'paid' ? 'pagas' : filters.status}`;
+        }
+        
+        speak(message + '.');
+        if (onModalOpen) {
+          onModalOpen('vendas', { 
+            client: clientName,
+            filters: filters,
+            autoOpen: true 
+          });
+        }
+        return true;
+      }
+      
+      // Buscar produtos/estoque
+      if (lowerCommand.includes('produto') || lowerCommand.includes('estoque') || 
+          lowerCommand.includes('joia') || lowerCommand.includes('jóia')) {
+        const filters = extractFilters(command, 'produtos');
+        
+        let message = 'Listando';
+        if (filters.category) {
+          const categoryNames = {
+            'aneis': 'anéis',
+            'colares': 'colares',
+            'brincos': 'brincos',
+            'pulseiras': 'pulseiras'
+          };
+          message += ` ${categoryNames[filters.category] || filters.category}`;
+        } else {
+          message += ' produtos';
+        }
+        
+        if (lowerCommand.includes('estoque')) {
+          message += ' em estoque';
+        }
+        
+        speak(message + '.');
+        if (onModalOpen) {
+          onModalOpen('produtos', { 
+            filters: filters,
+            showStock: lowerCommand.includes('estoque'),
+            autoOpen: true 
+          });
+        }
+        return true;
       }
     }
 
@@ -580,18 +818,16 @@ const JarvisAI = ({ onCommand, onModalOpen }) => {
     const lowerCommand = command.toLowerCase();
     
     // Extrair período temporal
-    if (lowerCommand.includes('hoje')) {
-      filters.period = 'today';
-      filters.date = new Date().toISOString().split('T')[0];
-    } else if (lowerCommand.includes('ontem')) {
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      filters.period = 'yesterday';
-      filters.date = yesterday.toISOString().split('T')[0];
-    } else if (lowerCommand.includes('semana')) {
-      filters.period = 'week';
-    } else if (lowerCommand.includes('mês') || lowerCommand.includes('mes')) {
-      filters.period = 'month';
+    const dateInfo = extractDateInfo(command);
+    if (dateInfo.period) {
+      filters.period = dateInfo.period;
+      if (dateInfo.date) {
+        filters.date = dateInfo.date;
+      }
+      if (dateInfo.startDate && dateInfo.endDate) {
+        filters.startDate = dateInfo.startDate;
+        filters.endDate = dateInfo.endDate;
+      }
     }
     
     // Extrair status
@@ -601,9 +837,125 @@ const JarvisAI = ({ onCommand, onModalOpen }) => {
       filters.status = 'approved';
     } else if (lowerCommand.includes('pago')) {
       filters.status = 'paid';
+    } else if (lowerCommand.includes('cancelado')) {
+      filters.status = 'cancelled';
+    } else if (lowerCommand.includes('atrasado')) {
+      filters.status = 'overdue';
+    }
+    
+    // Extrair nome de funcionário/cliente
+    if (module === 'vales') {
+      const employeeName = extractEmployeeName(command);
+      if (employeeName) {
+        filters.employee = employeeName;
+      }
+    } else if (module === 'clientes' || module === 'vendas') {
+      const clientName = extractClientName(command);
+      if (clientName) {
+        filters.client = clientName;
+      }
+    }
+    
+    // Extrair valores
+    const amount = extractAmount(command);
+    if (amount) {
+      if (lowerCommand.includes('acima de') || lowerCommand.includes('maior que')) {
+        filters.minAmount = amount;
+      } else if (lowerCommand.includes('abaixo de') || lowerCommand.includes('menor que')) {
+        filters.maxAmount = amount;
+      } else {
+        filters.amount = amount;
+      }
+    }
+    
+    // Extrair categorias/tipos
+    if (module === 'produtos' || module === 'estoque') {
+      if (lowerCommand.includes('anel') || lowerCommand.includes('anéis')) {
+        filters.category = 'aneis';
+      } else if (lowerCommand.includes('colar') || lowerCommand.includes('colares')) {
+        filters.category = 'colares';
+      } else if (lowerCommand.includes('brinco')) {
+        filters.category = 'brincos';
+      } else if (lowerCommand.includes('pulseira')) {
+        filters.category = 'pulseiras';
+      }
     }
     
     return filters;
+  };
+  
+  // Função auxiliar para extrair informações de data
+  const extractDateInfo = (command) => {
+    const lowerCommand = command.toLowerCase();
+    const result = {};
+    
+    if (lowerCommand.includes('hoje')) {
+      result.period = 'today';
+      result.date = new Date().toISOString().split('T')[0];
+    } else if (lowerCommand.includes('ontem')) {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      result.period = 'yesterday';
+      result.date = yesterday.toISOString().split('T')[0];
+    } else if (lowerCommand.includes('semana')) {
+      result.period = 'week';
+      if (lowerCommand.includes('passada') || lowerCommand.includes('última')) {
+        result.period = 'lastWeek';
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - 7 - startDate.getDay());
+        const endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + 6);
+        result.startDate = startDate.toISOString().split('T')[0];
+        result.endDate = endDate.toISOString().split('T')[0];
+      }
+    } else if (lowerCommand.includes('mês') || lowerCommand.includes('mes')) {
+      result.period = 'month';
+      if (lowerCommand.includes('passado') || lowerCommand.includes('último')) {
+        result.period = 'lastMonth';
+        const date = new Date();
+        date.setMonth(date.getMonth() - 1);
+        result.month = date.getMonth() + 1;
+        result.year = date.getFullYear();
+      }
+    } else if (lowerCommand.includes('ano')) {
+      result.period = 'year';
+      if (lowerCommand.includes('passado') || lowerCommand.includes('último')) {
+        result.period = 'lastYear';
+        result.year = new Date().getFullYear() - 1;
+      }
+    }
+    
+    // Extrair data específica (ex: "dia 15", "15 de janeiro")
+    const dayMatch = lowerCommand.match(/dia (\d{1,2})/i);
+    if (dayMatch) {
+      const day = parseInt(dayMatch[1]);
+      const currentDate = new Date();
+      currentDate.setDate(day);
+      result.date = currentDate.toISOString().split('T')[0];
+    }
+    
+    return result;
+  };
+  
+  // Função para extrair nome de cliente
+  const extractClientName = (command) => {
+    const patterns = [
+      /(?:cliente |para o cliente |do cliente )([à-ú\w\s]+?)(?:\s|,|$|com|no)/i,
+      /(?:para |do |da )([à-ú\w\s]+?)(?:\s|,|$)/i
+    ];
+    
+    for (const pattern of patterns) {
+      const match = command.match(pattern);
+      if (match) {
+        const name = match[1].trim();
+        // Filtrar palavras que não são nomes
+        const excludeWords = ['vale', 'cliente', 'funcionário', 'produto', 'venda'];
+        if (!excludeWords.some(word => name.toLowerCase().includes(word))) {
+          return name;
+        }
+      }
+    }
+    return null;
   };
 
   const processSearchCommand = async (command) => {
@@ -753,6 +1105,14 @@ const JarvisAI = ({ onCommand, onModalOpen }) => {
               >
                 {isListening ? <MicOff size={18} /> : <Mic size={18} />}
               </button>
+              
+              <button
+                onClick={() => setShowVoiceSelector(true)}
+                className="p-2 rounded-full transition-all bg-purple-500/20 text-purple-400 hover:bg-purple-500/30"
+                title="Configurar voz"
+              >
+                <Settings size={18} />
+              </button>
             </div>
 
             {/* Mensagem de erro se não houver suporte */}
@@ -807,6 +1167,19 @@ const JarvisAI = ({ onCommand, onModalOpen }) => {
           </div>
         </div>
       </button>
+      
+      {/* Voice Selector Modal */}
+      {showVoiceSelector && (
+        <VoiceSelector 
+          onClose={() => setShowVoiceSelector(false)}
+          onVoiceSelected={(voiceId, settings) => {
+            console.log('Voz selecionada:', voiceId, settings);
+            setShowVoiceSelector(false);
+            // Atualizar estado do backend de voz
+            checkBackendVoiceStatus();
+          }}
+        />
+      )}
     </div>
   );
 };

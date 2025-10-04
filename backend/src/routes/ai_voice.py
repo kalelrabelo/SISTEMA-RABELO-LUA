@@ -5,10 +5,33 @@ Rotas da API para o sistema de voz da LUA
 from flask import Blueprint, request, jsonify
 import base64
 import os
+import tempfile
+import traceback
 from pathlib import Path
 
 # Importar serviços
-from src.services.voice_engine import generate_lua_voice, voice_engine
+try:
+    from src.services.voice_engine import generate_lua_voice, voice_engine
+except ImportError:
+    print("⚠️ Erro ao importar voice_engine, tentando caminho alternativo...")
+    import sys
+    backend_path = os.path.join(os.path.dirname(__file__), "..", "..")
+    if backend_path not in sys.path:
+        sys.path.insert(0, backend_path)
+    try:
+        from src.services.voice_engine import generate_lua_voice, voice_engine
+    except ImportError as e:
+        print(f"❌ Não foi possível importar voice_engine: {e}")
+        voice_engine = None
+        generate_lua_voice = None
+
+# Importar pydub para conversão de áudio
+try:
+    from pydub import AudioSegment
+    from pydub.effects import normalize
+except ImportError:
+    print("⚠️ PyDub não disponível")
+    AudioSegment = None
 
 ai_voice_bp = Blueprint('ai_voice', __name__)
 
@@ -17,24 +40,36 @@ def voice_status():
     """Retorna status do sistema de voz"""
     try:
         if voice_engine:
-            status = voice_engine.get_voice_status()
-            return jsonify({
-                'success': True,
-                'status': status,
-                'engine_loaded': True
-            })
+            try:
+                status = voice_engine.get_voice_status()
+                return jsonify({
+                    'success': True,
+                    'status': status,
+                    'engine_loaded': True
+                })
+            except Exception as status_error:
+                print(f"⚠️ Erro ao obter status do voice_engine: {status_error}")
+                return jsonify({
+                    'success': True,
+                    'status': {'engine': 'Unknown', 'error': str(status_error)},
+                    'engine_loaded': True  # Engine existe mas teve erro no status
+                })
         else:
             return jsonify({
                 'success': False,
                 'status': {'engine': 'None', 'status': 'Offline'},
-                'engine_loaded': False
+                'engine_loaded': False,
+                'message': 'Voice engine não inicializado'
             })
     except Exception as e:
+        print(f"❌ Erro crítico em /api/voice/status: {e}")
+        print(traceback.format_exc())
         return jsonify({
             'success': False,
             'error': str(e),
-            'engine_loaded': False
-        }), 500
+            'engine_loaded': False,
+            'traceback': traceback.format_exc() if request.args.get('debug') else None
+        }), 200  # Retornar 200 mesmo com erro para evitar problemas no frontend
 
 def convert_to_mp3_44k_stereo(audio_path):
     """
@@ -129,24 +164,59 @@ def text_to_speech():
             }), 400
         
         # Gerar áudio usando a voz da LUA
+        print(f"🎵 Gerando áudio para: '{text[:50]}...'")
         audio_path = generate_lua_voice(text, emotion)
         
-        if not audio_path or not Path(audio_path).exists():
+        if not audio_path:
+            print("❌ generate_lua_voice retornou None")
             return jsonify({
                 'success': False,
-                'error': 'Falha ao gerar áudio'
+                'error': 'Voice engine não disponível ou falhou ao gerar áudio'
+            }), 503  # Service Unavailable
+            
+        if not Path(audio_path).exists():
+            print(f"❌ Arquivo de áudio não encontrado: {audio_path}")
+            return jsonify({
+                'success': False,
+                'error': f'Arquivo de áudio não foi criado: {audio_path}'
             }), 500
+            
+        # Verificar tamanho do arquivo
+        file_size = Path(audio_path).stat().st_size
+        if file_size == 0:
+            print(f"❌ Arquivo de áudio vazio: {audio_path}")
+            return jsonify({
+                'success': False,
+                'error': 'Arquivo de áudio gerado está vazio'
+            }), 500
+            
+        print(f"✅ Áudio gerado com sucesso: {audio_path} ({file_size} bytes)")
+        
+        # Converter para MP3 44.1kHz estéreo para melhor compatibilidade
+        try:
+            converted_path = convert_to_mp3_44k_stereo(audio_path)
+            if converted_path and Path(converted_path).exists():
+                audio_path = converted_path
+                output_format = 'mp3'
+            else:
+                output_format = 'wav'
+        except Exception as conversion_error:
+            print(f"⚠️ Erro na conversão, usando arquivo original: {conversion_error}")
+            output_format = 'wav'
         
         # Retornar áudio como base64
         try:
             with open(audio_path, 'rb') as audio_file:
                 audio_data = base64.b64encode(audio_file.read()).decode('utf-8')
             
+            print(f"✅ Retornando áudio base64: formato={output_format}, tamanho={len(audio_data)} chars")
+            
             return jsonify({
                 'success': True,
                 'audio_base64': audio_data,
-                'format': 'wav',
-                'emotion': emotion
+                'format': output_format,
+                'emotion': emotion,
+                'size_bytes': Path(audio_path).stat().st_size
             })
             
         except Exception as file_error:
@@ -156,10 +226,12 @@ def text_to_speech():
             }), 500
             
     except Exception as e:
-        print(f"Erro no TTS: {str(e)}")
+        print(f"❌ Erro no endpoint /api/voice/speak: {str(e)}")
+        print(traceback.format_exc())
         return jsonify({
             'success': False,
-            'error': str(e)
+            'error': str(e),
+            'traceback': traceback.format_exc() if request.args.get('debug') else None
         }), 500
 
 @ai_voice_bp.route('/clear-cache', methods=['POST'])

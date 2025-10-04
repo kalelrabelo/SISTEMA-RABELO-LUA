@@ -25,6 +25,14 @@ except ImportError:
     print("⚠️ Sistema de consciência da LUA não disponível")
     LUA_CONSCIOUSNESS_AVAILABLE = False
 
+# Importar sistema de reconhecimento de intenções
+try:
+    from src.services.intent_recognition import recognize_intent
+    INTENT_RECOGNITION_AVAILABLE = True
+except ImportError:
+    print("⚠️ Sistema de reconhecimento de intenções não disponível")
+    INTENT_RECOGNITION_AVAILABLE = False
+
 ai_enhanced_bp = Blueprint('ai_enhanced', __name__)
 
 class AIAssistant:
@@ -1599,6 +1607,175 @@ def search_vales_ai():
             'success': False,
             'error': str(e)
         }), 500
+
+@ai_enhanced_bp.route('/process_intent', methods=['POST'])
+def process_intent():
+    """Processa comando com reconhecimento de intenção"""
+    try:
+        data = request.get_json()
+        command = data.get('command', '')
+        
+        if not command:
+            return jsonify({
+                'success': False,
+                'error': 'Comando não fornecido'
+            }), 400
+        
+        # Usar reconhecimento de intenção se disponível
+        if INTENT_RECOGNITION_AVAILABLE:
+            intent_response = recognize_intent(command)
+            
+            # Executar ação baseada na intenção
+            if intent_response['crud_operation'] and intent_response['entity_type'] != 'unknown':
+                # Processar CRUD baseado na intenção
+                result = execute_crud_operation(
+                    intent_response['crud_operation'],
+                    intent_response['entity_type'],
+                    intent_response['parameters']
+                )
+                
+                return jsonify({
+                    'success': True,
+                    'intent': intent_response,
+                    'result': result,
+                    'message': intent_response.get('message', 'Comando executado')
+                })
+            else:
+                # Fallback para processamento tradicional
+                return process_traditional_command(command)
+        else:
+            # Se reconhecimento de intenção não estiver disponível
+            return process_traditional_command(command)
+            
+    except Exception as e:
+        print(f"Erro ao processar intenção: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+def execute_crud_operation(operation, entity_type, parameters):
+    """Executa operação CRUD baseada na intenção identificada"""
+    result = {
+        'operation': operation,
+        'entity_type': entity_type,
+        'status': 'pending'
+    }
+    
+    try:
+        if entity_type == 'vale':
+            if operation == 'create':
+                # Criar vale
+                entities = parameters.get('entities', {})
+                employee_name = entities.get('person_name')
+                value = entities.get('value', 0)
+                
+                if employee_name:
+                    employee = AIAssistant.find_employee_by_name(employee_name)
+                    if employee:
+                        vale = Vale(
+                            employee_id=employee.id,
+                            amount=value,
+                            date=datetime.now(),
+                            description=f"Vale criado por comando de voz",
+                            status='pending'
+                        )
+                        db.session.add(vale)
+                        db.session.commit()
+                        
+                        result['status'] = 'success'
+                        result['data'] = {
+                            'vale_id': vale.id,
+                            'employee': employee.name,
+                            'amount': value
+                        }
+                        result['message'] = f"Vale de R$ {value:.2f} criado para {employee.name}"
+                    else:
+                        result['status'] = 'error'
+                        result['message'] = f"Funcionário {employee_name} não encontrado"
+                else:
+                    result['status'] = 'error'
+                    result['message'] = "Nome do funcionário não identificado"
+                    
+            elif operation == 'read':
+                # Listar vales
+                filters = parameters.get('filters', {})
+                query = Vale.query
+                
+                if filters.get('time_filter') == 'today':
+                    today = datetime.now().date()
+                    query = query.filter(func.date(Vale.date) == today)
+                elif filters.get('time_filter') == 'this_week':
+                    week_start = datetime.now() - timedelta(days=datetime.now().weekday())
+                    query = query.filter(Vale.date >= week_start)
+                
+                vales = query.order_by(Vale.date.desc()).limit(10).all()
+                
+                result['status'] = 'success'
+                result['data'] = [{
+                    'id': v.id,
+                    'employee': v.employee.name if v.employee else 'N/A',
+                    'amount': v.amount,
+                    'date': v.date.strftime('%d/%m/%Y'),
+                    'status': v.status
+                } for v in vales]
+                result['message'] = f"Encontrados {len(vales)} vales"
+                
+            elif operation == 'delete':
+                # Excluir vale
+                entities = parameters.get('entities', {})
+                target = entities.get('target')
+                
+                if target == 'last':
+                    # Excluir último vale
+                    last_vale = Vale.query.order_by(Vale.id.desc()).first()
+                    if last_vale:
+                        vale_info = f"Vale #{last_vale.id} de R$ {last_vale.amount:.2f}"
+                        db.session.delete(last_vale)
+                        db.session.commit()
+                        
+                        result['status'] = 'success'
+                        result['message'] = f"{vale_info} excluído com sucesso"
+                    else:
+                        result['status'] = 'error'
+                        result['message'] = "Nenhum vale encontrado"
+                else:
+                    result['status'] = 'error'
+                    result['message'] = "Especifique qual vale excluir"
+                    
+            elif operation == 'update':
+                # Atualizar vale
+                result['status'] = 'pending'
+                result['message'] = "Atualização de vale não implementada ainda"
+                
+        elif entity_type == 'cliente':
+            # Implementar operações para cliente
+            result['status'] = 'pending'
+            result['message'] = f"Operação {operation} para cliente em desenvolvimento"
+            
+        elif entity_type == 'produto':
+            # Implementar operações para produto
+            result['status'] = 'pending'
+            result['message'] = f"Operação {operation} para produto em desenvolvimento"
+            
+        else:
+            result['status'] = 'error'
+            result['message'] = f"Tipo de entidade {entity_type} não suportado"
+            
+    except Exception as e:
+        result['status'] = 'error'
+        result['message'] = str(e)
+    
+    return result
+
+def process_traditional_command(command):
+    """Processa comando usando método tradicional (fallback)"""
+    # Implementação do processamento tradicional existente
+    return jsonify({
+        'success': False,
+        'message': 'Processamento tradicional não implementado',
+        'command': command
+    })
 
 @ai_enhanced_bp.route('/reports/<report_type>', methods=['GET'])
 def generate_report_ai(report_type):
