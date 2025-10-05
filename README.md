@@ -1,257 +1,308 @@
-# 🌙 Lua TTS System - Assistente de IA com Voz PT-BR
+# 🌙 Sistema Lua TTS - Joalheria com Assistente IA
 
-Sistema completo de Text-to-Speech (TTS) com assistente de IA conversacional, utilizando o modelo **Kokoro-82M** para síntese de voz em português brasileiro.
+Sistema completo de gerenciamento de joalheria com assistente de IA integrada (Lua), incluindo conversação por voz bidirecional e interface visual com esfera de energia.
 
 ## 🚀 Características Principais
 
 ### ✅ Funcionalidades Implementadas
-- ✨ **Assistente Lua**: IA conversacional com personalidade amigável
-- 🎙️ **TTS em PT-BR**: Síntese de voz natural usando Kokoro-82M
-- 🔊 **Múltiplas Vozes**: 6 vozes disponíveis (3 femininas, 2 masculinas, 1 Lua)
-- ⚡ **API RESTful**: Endpoints completos para TTS e chat
-- 🎨 **Interface Web**: Frontend React moderno com Tailwind CSS
-- 🐳 **Docker Ready**: Containerização completa para deploy fácil
-- 🔄 **Streaming de Áudio**: Resposta em tempo real
-- 🎛️ **Controle de Velocidade**: Ajuste de velocidade de fala (0.5x a 2.0x)
 
-### 🛠️ Stack Tecnológica
-- **Backend**: FastAPI + Python 3.11
-- **TTS Engine**: Kokoro-82M (PyTorch)
-- **Frontend**: React 18 + Vite + Tailwind CSS
-- **Container**: Docker + Docker Compose
-- **Audio**: SoundFile + espeak-ng
+1. **Sistema de Gerenciamento de Joalheria**
+   - Cadastro de produtos, clientes e funcionários
+   - Controle de estoque e materiais
+   - Gestão financeira e notas fiscais
+   - Sistema de pedidos e ordens de serviço
 
-## 📦 Instalação e Execução
+2. **Assistente IA Lua**
+   - Conversação natural em português (PT-BR)
+   - Text-to-Speech (TTS) com múltiplas vozes
+   - Speech-to-Text (STT) para comandos de voz
+   - Personalidade customizada e contexto de conversa
 
-### Opção 1: Docker (Recomendado)
+3. **Interface Visual Imersiva**
+   - Modo conversa com esfera de energia animada
+   - Vídeo em loop de partículas azuis
+   - Esfera que pulsa sincronizada com a voz da Lua
+   - Transição suave com fade para preto
 
+4. **Conversação Bidirecional**
+   - Captura de voz do usuário via microfone
+   - Transcrição automática para texto
+   - Resposta da Lua com voz sintetizada
+   - WebSocket para comunicação em tempo real
+
+## 📋 Pré-requisitos
+
+- Docker e Docker Compose
+- Node.js 18+ (para desenvolvimento local)
+- Python 3.11+ (para desenvolvimento local)
+- Navegador com suporte a Web Speech API (Chrome, Edge)
+- Microfone para comandos de voz
+
+## 🎬 Configuração do Vídeo da Esfera
+
+### ⚠️ IMPORTANTE: Adicionar o Vídeo Manualmente
+
+O arquivo de vídeo da esfera de energia não está incluído no repositório devido ao seu tamanho (>400MB).
+
+1. **Baixe ou localize o arquivo:**
+   - Nome original: `abstract-blue-looped-energy-sphere-of-particles-an-2025-08-29-12-33-41-utc.mp4`
+
+2. **Coloque o arquivo na pasta correta:**
+   ```bash
+   frontend/public/videos/
+   ```
+
+3. **Renomeie o arquivo para:**
+   ```bash
+   abstract-blue-looped-energy-sphere.mp4
+   ```
+
+4. **Estrutura esperada:**
+   ```
+   frontend/public/videos/
+   ├── abstract-blue-looped-energy-sphere.mp4  # <-- Adicione este arquivo
+   └── README.md
+   ```
+
+## 🐳 Instalação com Docker (Recomendado)
+
+### 1. Clone o repositório
 ```bash
-# Build da imagem
-docker build -t lua-webapp .
-
-# Executar container
-docker run -p 8000:8000 lua-webapp
-
-# Ou usar Docker Compose
-docker-compose up -d
+git clone https://github.com/kalelrabelo/SISTEMA-RABELO-LUA.git
+cd SISTEMA-RABELO-LUA
 ```
 
-### Opção 2: Execução Local
+### 2. Adicione o vídeo da esfera (veja seção acima)
 
-#### Requisitos
-- Python 3.11+
-- Node.js 18+
-- FFmpeg
-- espeak-ng
-
-#### Backend
+### 3. Configure as variáveis de ambiente
 ```bash
-# Instalar dependências do sistema (Windows)
-# Baixe e instale: https://www.python.org/downloads/
-# Baixe FFmpeg: https://ffmpeg.org/download.html
+# Backend
+cp backend/.env.example backend/.env
+
+# Frontend
+cp frontend/.env.example frontend/.env
+```
+
+### 4. Build e execute com Docker Compose
+```bash
+# Usar o docker-compose corrigido
+docker-compose -f docker-compose.fixed.yml up --build
+```
+
+### 5. Acesse o sistema
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:5000
+- Documentação API: http://localhost:5000/docs
+
+## 💻 Instalação Local (Desenvolvimento)
+
+### Backend (FastAPI)
+
+```bash
+cd backend
 
 # Criar ambiente virtual
 python -m venv venv
-
-# Ativar ambiente (Windows)
-venv\Scripts\activate
-
-# Ativar ambiente (Linux/Mac)
-source venv/bin/activate
+source venv/bin/activate  # Linux/Mac
+# ou
+venv\Scripts\activate  # Windows
 
 # Instalar dependências
 pip install -r requirements.txt
 
 # Executar servidor
-cd backend
-python main.py
+uvicorn main:app --host 0.0.0.0 --port 5000 --reload
 ```
 
-#### Frontend
+### Frontend (React)
+
 ```bash
 cd frontend
+
+# Instalar dependências
 npm install
+
+# Executar servidor de desenvolvimento
 npm run dev
 ```
 
-## 🌐 Endpoints da API
+## 🎤 Como Usar o Modo Conversa da Lua
 
-### Endpoints Principais
+### Ativação por Voz
+1. Diga: **"Lua, iniciar modo conversa"**
+2. Ou clique no botão **"Iniciar Modo Conversa 🌙"**
+3. Ou use o atalho **Alt + L**
 
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| GET | `/` | Informações do sistema |
-| GET | `/health` | Status de saúde |
-| GET | `/docs` | Documentação Swagger |
-| GET | `/api/voice/voices` | Listar vozes disponíveis |
-| POST | `/api/voice/speak` | Converter texto em fala |
-| POST | `/api/voice/mix` | Misturar múltiplas vozes |
-| POST | `/api/chat` | Chat com Lua |
-| POST | `/api/chat/voice` | Chat com resposta em voz |
-| GET | `/api/chat/history` | Histórico de conversas |
-| DELETE | `/api/chat/history` | Limpar histórico |
+### Durante a Conversa
+- A tela escurece suavemente
+- A esfera de energia azul aparece no centro
+- O microfone é ativado automaticamente
+- Fale naturalmente - a Lua responderá
+- A esfera pulsa quando a Lua fala
+- Para sair, clique em "Encerrar Conversa"
 
-### Exemplos de Uso
-
-#### 1. Listar Vozes
-```bash
-curl http://localhost:8000/api/voice/voices
-```
-
-#### 2. Gerar Fala
-```bash
-curl -X POST http://localhost:8000/api/voice/speak \
-  -H "Content-Type: application/json" \
-  -d '{
-    "text": "Olá! Eu sou a Lua, sua assistente virtual.",
-    "voice": "luna",
-    "speed": 1.0
-  }' \
-  --output speech.wav
-```
-
-#### 3. Chat com Lua
-```bash
-curl -X POST http://localhost:8000/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{
-    "message": "Olá Lua, como você está?",
-    "user_id": "user123"
-  }'
-```
-
-## 🎯 Vozes Disponíveis
-
-| ID | Descrição | Tipo |
-|----|-----------|------|
-| `pt-BR-f1` | Voz Feminina 1 | Feminina |
-| `pt-BR-f2` | Voz Feminina 2 | Feminina |
-| `pt-BR-f3` | Voz Feminina 3 | Feminina |
-| `pt-BR-m1` | Voz Masculina 1 | Masculina |
-| `pt-BR-m2` | Voz Masculina 2 | Masculina |
-| `luna` | Voz da Lua (Padrão) | Assistente |
-
-## 🏗️ Estrutura do Projeto
+## 🗂️ Estrutura do Projeto
 
 ```
-webapp/
-├── backend/
-│   ├── core/              # Configurações e logger
-│   ├── modules/
-│   │   ├── lua/           # Módulo da assistente Lua
-│   │   └── tts/           # Engine Kokoro TTS
-│   ├── main.py            # Aplicação FastAPI
-│   └── requirements.txt   # Dependências Python
-├── frontend/
+SISTEMA-RABELO-LUA/
+├── backend/                    # API FastAPI
+│   ├── main.py                # Aplicação principal
+│   ├── modules/               
+│   │   ├── tts/               # Engine TTS corrigido
+│   │   │   ├── kokoro_engine_fixed.py
+│   │   │   └── kokoro_engine.py (original)
+│   │   ├── stt/               # Speech-to-Text
+│   │   │   └── speech_recognition.py
+│   │   └── lua/               # Assistente IA
+│   │       ├── assistant.py
+│   │       └── personality.py
+│   ├── src/                   # Modelos de dados
+│   │   └── models/            # Entidades da joalheria
+│   ├── requirements.txt       # Dependências Python
+│   ├── requirements_tts.txt   # Dependências TTS
+│   ├── requirements_stt.txt   # Dependências STT
+│   ├── Dockerfile            
+│   └── Dockerfile.fixed       # Dockerfile corrigido
+│
+├── frontend/                   # React App
 │   ├── src/
-│   │   ├── components/    # Componentes React
-│   │   ├── App.jsx        # Componente principal
-│   │   └── main.jsx       # Entry point
-│   ├── package.json       # Dependências Node
-│   └── vite.config.js     # Configuração Vite
-├── Dockerfile             # Imagem Docker
-├── docker-compose.yml     # Orquestração
-└── README.md             # Documentação
+│   │   ├── App.jsx            # Componente principal
+│   │   └── components/
+│   │       ├── LuaConversation.jsx    # Modo conversa
+│   │       ├── LuaConversation.css    # Estilos
+│   │       ├── ChatInterface.jsx
+│   │       └── VoiceControls.jsx
+│   ├── public/
+│   │   └── videos/            # ADICIONE O VÍDEO AQUI
+│   │       └── abstract-blue-looped-energy-sphere.mp4
+│   ├── package.json
+│   └── Dockerfile
+│
+├── docker-compose.yml          # Configuração original
+├── docker-compose.fixed.yml    # Configuração corrigida
+└── README.md                   # Este arquivo
 ```
 
-## 🔧 Configuração
+## 🔧 Correções Implementadas
 
-### Variáveis de Ambiente
+### 1. Erro do Kokoro TTS Engine
+- **Problema**: `'EspeakG2P' object has no attribute 'lexicon'`
+- **Solução**: Migração para Coqui TTS com modelos multilíngues
+- **Arquivo**: `backend/modules/tts/kokoro_engine_fixed.py`
 
-Crie um arquivo `.env` no diretório `backend/`:
+### 2. Dependências Fixadas
+- Versões específicas no `requirements_tts.txt`
+- TTS==0.22.0, torch==2.1.2, etc.
+- Dockerfile atualizado com todas as dependências de sistema
 
-```env
-# API Configuration
-API_HOST=0.0.0.0
-API_PORT=8000
+### 3. Interface Visual da Lua
+- Componente React completo: `LuaConversation.jsx`
+- Animações CSS suaves e responsivas
+- Integração com Web Audio API para efeito de pulsação
 
-# Model Configuration
-USE_GPU=false
-DEFAULT_VOICE=luna
-DEFAULT_VOICE_CODE=p
-
-# Features
-ENABLE_WEB_PLAYER=true
-ENABLE_VOICE_MIXING=true
-ENABLE_STREAMING=true
-
-# Logging
-LOG_LEVEL=INFO
-```
-
-## 🧪 Testes
-
-### Testar Backend
-```bash
-# Verificar saúde
-curl http://localhost:8000/health
-
-# Testar TTS
-python -c "
-import requests
-response = requests.post('http://localhost:8000/api/voice/speak', 
-    json={'text': 'Teste de voz', 'voice': 'luna'})
-with open('test.wav', 'wb') as f:
-    f.write(response.content)
-"
-```
-
-### Testar Frontend
-Acesse: http://localhost:3000
-
-## 📈 Performance
-
-- **Tempo de inicialização**: ~30-60 segundos
-- **Latência TTS**: ~500ms para primeira resposta
-- **Uso de memória**: ~2GB (CPU) / ~4GB (GPU)
-- **Tamanho do modelo**: ~350MB
-
-## 🔄 Próximos Passos Recomendados
-
-1. **Integração com LLM**: Conectar com OpenAI, Anthropic ou Ollama
-2. **Speech-to-Text**: Adicionar reconhecimento de voz
-3. **Banco de Dados**: Persistir histórico de conversas
-4. **Autenticação**: Sistema de usuários
-5. **WebSockets**: Comunicação em tempo real
-6. **Fine-tuning**: Treinar vozes personalizadas
-7. **Cache**: Implementar cache de áudio
-8. **Monitoramento**: Adicionar métricas e logs
+### 4. Modo Conversa Bidirecional
+- WebSocket endpoint: `/ws/conversation`
+- STT endpoint: `/api/stt/transcribe`
+- Integração com Web Speech API no frontend
 
 ## 🐛 Solução de Problemas
 
-### Erro: "Model not initialized"
-- Aguarde a inicialização completa (~30s)
-- Verifique logs: `docker logs lua-tts-system`
+### Erro: "Vídeo não encontrado"
+- Certifique-se de adicionar o arquivo MP4 em `frontend/public/videos/`
+- Renomeie para `abstract-blue-looped-energy-sphere.mp4`
 
-### Erro: "Out of memory"
-- Reduza batch size
-- Use CPU ao invés de GPU
-- Aumente memória Docker
+### Erro: "Microfone não autorizado"
+- Permita acesso ao microfone quando solicitado
+- Use HTTPS em produção para Web Speech API
 
-### Audio não reproduz
-- Verifique FFmpeg instalado
-- Teste com curl diretamente
-- Verifique CORS no navegador
+### Erro: "TTS não inicializa"
+- Verifique se o Docker tem memória suficiente (mínimo 4GB)
+- Use `docker-compose.fixed.yml` ao invés do original
 
-## 📝 Licença
+### Erro: "Port already in use"
+```bash
+# Linux/Mac
+sudo lsof -i :3000
+sudo lsof -i :5000
+kill -9 <PID>
 
-MIT License - Uso livre para projetos pessoais e comerciais.
+# Windows
+netstat -ano | findstr :3000
+netstat -ano | findstr :5000
+taskkill /PID <PID> /F
+```
 
-## 👨‍💻 Desenvolvimento
+## 📚 API Endpoints
 
-Desenvolvido com ❤️ usando:
-- **Kokoro-82M** by hexgrad
-- **FastAPI** framework
-- **React** + **Vite**
+### Chat
+- `POST /api/chat` - Enviar mensagem para Lua
+- `GET /api/chat/history` - Histórico de conversas
 
-## 🆘 Suporte
+### TTS (Text-to-Speech)
+- `POST /api/tts/generate` - Gerar áudio da fala
+- `POST /api/voice/mix` - Misturar vozes
+- `GET /api/voice/voices` - Listar vozes disponíveis
 
-Para problemas ou dúvidas:
-1. Verifique os logs: `docker logs lua-tts-system`
-2. Acesse a documentação: http://localhost:8000/docs
-3. Teste endpoints individualmente
+### STT (Speech-to-Text)
+- `POST /api/stt/transcribe` - Transcrever áudio
+- `WS /ws/conversation` - WebSocket para conversa
+
+### Sistema
+- `GET /health` - Status do sistema
+- `GET /docs` - Documentação Swagger
+
+## 🚀 Deploy em Produção
+
+### Usando Docker
+1. Configure variáveis de ambiente de produção
+2. Use `docker-compose.fixed.yml` com ajustes
+3. Configure HTTPS com nginx/traefik
+4. Use volumes para persistência de dados
+
+### Considerações de Segurança
+- Configure CORS adequadamente
+- Use HTTPS para Web Speech API
+- Implemente autenticação JWT
+- Configure rate limiting
+- Use secrets para API keys
+
+## 📝 Próximos Passos Recomendados
+
+1. **Melhorias na Interface**
+   - Adicionar mais animações à esfera
+   - Implementar temas personalizáveis
+   - Adicionar visualização de ondas sonoras
+
+2. **Funcionalidades IA**
+   - Integração com GPT-4 para respostas mais inteligentes
+   - Análise de sentimento na voz
+   - Múltiplos idiomas
+
+3. **Sistema de Joalheria**
+   - Dashboard com gráficos
+   - Relatórios automáticos
+   - Integração com sistemas de pagamento
+
+4. **Performance**
+   - Cache de respostas frequentes
+   - Otimização de modelos TTS
+   - CDN para assets estáticos
+
+## 📄 Licença
+
+Proprietary - Sistema desenvolvido para Joalheria Rabelo
+
+## 👤 Autor
+
+**Kalel Rabelo**
+- GitHub: [@kalelrabelo](https://github.com/kalelrabelo)
+
+## 🙏 Agradecimentos
+
+- Equipe Coqui TTS pelo engine de síntese
+- Comunidade FastAPI e React
+- OpenAI pela tecnologia de IA
 
 ---
-**Versão**: 1.0.0  
-**Status**: ✅ Produção  
-**Última Atualização**: 2024
+
+**Nota**: Para suporte técnico ou dúvidas, abra uma issue no GitHub ou entre em contato com o desenvolvedor.
