@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile.fixed
+    container_name: lua-backend
+    ports:
+      - "5000:5000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - TTS_CACHE_DIR=/app/.cache/tts
+      - USE_GPU=false
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./backend:/app
+      - tts_cache:/app/.cache
+      - ./data:/app/data
+    restart: unless-stopped
+    networks:
+      - lua-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  frontend:
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: lua-frontend
+    ports:
+      - "3000:80"
+    environment:
+      - REACT_APP_API_URL=http://localhost:5000
+      - REACT_APP_WEBSOCKET_URL=ws://localhost:5000/ws
+    depends_on:
+      - backend
+    networks:
+      - lua-network
+    restart: unless-stopped
+
+volumes:
+  tts_cache:
+    driver: local
+
+networks:
+  lua-network:
+    driver: bridge

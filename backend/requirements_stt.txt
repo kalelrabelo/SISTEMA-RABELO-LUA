@@ -1,0 +1,19 @@
+# Speech Recognition Dependencies
+SpeechRecognition==3.10.1
+pyaudio==0.2.14
+pydub==0.25.1
+
+# Google Speech Recognition
+google-api-python-client==2.111.0
+google-cloud-speech==2.23.0
+
+# Optional: OpenAI Whisper for local STT
+openai-whisper==20231117
+
+# Audio processing
+webrtcvad==2.0.10
+pywebrtc==0.0.1
+
+# WebSocket support
+python-socketio==5.11.0
+python-engineio==4.8.1

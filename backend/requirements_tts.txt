@@ -1,0 +1,50 @@
+# Core TTS Dependencies - Fixed versions for stability
+# Coqui TTS (mais estável que kokoro)
+TTS==0.22.0
+
+# Core ML Dependencies - Fixed versions
+torch==2.1.2
+torchaudio==2.1.2
+torchvision==0.16.2
+
+# Audio Processing
+soundfile==0.12.1
+librosa==0.10.1
+scipy==1.11.4
+numpy==1.24.3
+
+# Additional Audio Support
+pydub==0.25.1
+audioread==3.0.1
+
+# Text Processing for TTS
+nltk==3.8.1
+phonemizer==3.2.1
+gruut==2.4.0
+gruut-ipa==0.13.0
+gruut-lang-pt==2.0.0
+
+# Language Processing
+unidecode==1.3.7
+inflect==7.0.0
+anyascii==0.3.2
+
+# Model Management
+transformers==4.36.2
+datasets==2.16.1
+huggingface-hub==0.20.1
+
+# Performance and Optimization
+numba==0.58.1
+joblib==1.3.2
+
+# Optional GPU Support
+# Uncomment if using CUDA
+# nvidia-cublas-cu12==12.1.3.1
+# nvidia-cudnn-cu12==8.9.2.26
+
+# Additional Dependencies for compatibility
+typing-extensions==4.9.0
+packaging==23.2
+fsspec==2023.12.2
+filelock==3.13.1

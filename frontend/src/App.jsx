@@ -3,9 +3,10 @@ import axios from 'axios'
 import ChatInterface from './components/ChatInterface'
 import VoiceControls from './components/VoiceControls'
 import Header from './components/Header'
+import LuaConversation from './components/LuaConversation'
 
 // Configure axios
-axios.defaults.baseURL = import.meta.env.DEV ? 'http://localhost:8000' : ''
+axios.defaults.baseURL = import.meta.env.DEV ? 'http://localhost:5000' : ''
 
 function App() {
   const [messages, setMessages] = useState([])
@@ -15,6 +16,7 @@ function App() {
   const [voices, setVoices] = useState([])
   const [speechSpeed, setSpeechSpeed] = useState(1.0)
   const [systemStatus, setSystemStatus] = useState(null)
+  const [showLuaConversation, setShowLuaConversation] = useState(false)
   
   const audioRef = useRef(null)
 
@@ -31,6 +33,17 @@ function App() {
       timestamp: new Date().toISOString()
     }
     setMessages([welcomeMsg])
+    
+    // Listen for keyboard shortcuts
+    const handleKeyPress = (e) => {
+      // Alt + L to activate Lua conversation mode
+      if (e.altKey && e.key === 'l') {
+        setShowLuaConversation(true)
+      }
+    }
+    
+    window.addEventListener('keydown', handleKeyPress)
+    return () => window.removeEventListener('keydown', handleKeyPress)
   }, [])
 
   const checkSystemHealth = async () => {
@@ -59,118 +72,114 @@ function App() {
   }
 
   const sendMessage = async (text) => {
-    if (!text.trim()) return
-
-    // Add user message
-    const userMsg = {
+    // Create user message
+    const userMessage = {
       id: Date.now(),
       role: 'user',
       content: text,
       timestamp: new Date().toISOString()
     }
-    setMessages(prev => [...prev, userMsg])
+    
+    setMessages(prev => [...prev, userMessage])
     setIsLoading(true)
 
     try {
-      // Get text response
-      const chatResponse = await axios.post('/api/chat', {
+      // Send to backend
+      const response = await axios.post('/api/chat', {
         message: text,
         user_id: 'web-user',
-        context: { interface: 'web' }
+        voice_response: true
       })
 
-      if (chatResponse.data.success) {
-        // Add assistant message
-        const assistantMsg = {
-          id: Date.now() + 1,
-          role: 'assistant',
-          content: chatResponse.data.response,
-          timestamp: chatResponse.data.timestamp
-        }
-        setMessages(prev => [...prev, assistantMsg])
-
-        // Generate and play audio
-        await speakText(chatResponse.data.response)
-      }
-    } catch (error) {
-      console.error('Chat error:', error)
-      const errorMsg = {
+      // Create assistant message
+      const assistantMessage = {
         id: Date.now() + 1,
         role: 'assistant',
-        content: 'Desculpe, ocorreu um erro. Por favor, tente novamente.',
+        content: response.data.response,
+        timestamp: new Date().toISOString()
+      }
+      
+      setMessages(prev => [...prev, assistantMessage])
+
+      // Generate TTS if needed
+      if (response.data.response) {
+        await generateSpeech(response.data.response)
+      }
+    } catch (error) {
+      console.error('Error sending message:', error)
+      const errorMessage = {
+        id: Date.now() + 1,
+        role: 'assistant',
+        content: 'Desculpe, ocorreu um erro ao processar sua mensagem. Por favor, tente novamente.',
         timestamp: new Date().toISOString(),
         error: true
       }
-      setMessages(prev => [...prev, errorMsg])
+      setMessages(prev => [...prev, errorMessage])
     } finally {
       setIsLoading(false)
     }
   }
 
-  const speakText = async (text) => {
+  const generateSpeech = async (text) => {
     try {
-      const response = await axios.post(
-        '/api/voice/speak',
-        {
-          text,
-          voice: selectedVoice,
-          speed: speechSpeed
-        },
-        {
-          responseType: 'blob'
-        }
-      )
+      const response = await axios.post('/api/tts/generate', {
+        text,
+        voice: selectedVoice,
+        speed: speechSpeed
+      }, {
+        responseType: 'blob'
+      })
 
-      // Create audio URL and play
-      const audioUrl = URL.createObjectURL(response.data)
+      // Create audio URL
+      const audioBlob = new Blob([response.data], { type: 'audio/wav' })
+      const audioUrl = URL.createObjectURL(audioBlob)
+      
+      // Play audio
       if (audioRef.current) {
         audioRef.current.src = audioUrl
-        await audioRef.current.play()
+        audioRef.current.play()
       }
     } catch (error) {
-      console.error('TTS error:', error)
+      console.error('Error generating speech:', error)
     }
   }
 
-  const handleVoiceInput = async (audioBlob) => {
-    // Placeholder for voice input processing
-    // This would integrate with a speech recognition service
-    console.log('Voice input received:', audioBlob)
-    
-    // For now, simulate with a message
-    const simulatedText = "Teste de entrada de voz"
-    await sendMessage(simulatedText)
+  const toggleRecording = () => {
+    setIsRecording(!isRecording)
+    // Implement voice recording logic here
   }
 
-  const clearHistory = async () => {
-    try {
-      await axios.delete('/api/chat/history')
-      setMessages([{
-        id: Date.now(),
-        role: 'assistant',
-        content: 'Histórico limpo! Como posso ajudar você?',
-        timestamp: new Date().toISOString()
-      }])
-    } catch (error) {
-      console.error('Failed to clear history:', error)
-    }
+  const clearMessages = () => {
+    setMessages([{
+      id: Date.now(),
+      role: 'assistant',
+      content: 'Histórico limpo! Como posso ajudar você?',
+      timestamp: new Date().toISOString()
+    }])
+  }
+
+  // Show Lua conversation mode if activated
+  if (showLuaConversation) {
+    return <LuaConversation onExit={() => setShowLuaConversation(false)} />
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
+    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-pink-900">
+      <div className="container mx-auto px-4 py-8">
         <Header systemStatus={systemStatus} />
         
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
+          {/* Main Chat Interface */}
           <div className="lg:col-span-2">
             <ChatInterface
               messages={messages}
               onSendMessage={sendMessage}
               isLoading={isLoading}
-              onClearHistory={clearHistory}
+              onClearMessages={clearMessages}
             />
           </div>
           
+          {/* Voice Controls */}
           <div className="lg:col-span-1">
             <VoiceControls
               voices={voices}
@@ -179,16 +188,33 @@ function App() {
               speechSpeed={speechSpeed}
               onSpeedChange={setSpeechSpeed}
               isRecording={isRecording}
-              onToggleRecording={() => setIsRecording(!isRecording)}
-              onVoiceInput={handleVoiceInput}
-              onTestVoice={() => speakText('Olá! Esta é uma demonstração da minha voz.')}
+              onToggleRecording={toggleRecording}
             />
+            
+            {/* Lua Conversation Button */}
+            <div className="mt-6 bg-white/10 backdrop-blur-md rounded-lg p-6">
+              <h3 className="text-white text-lg font-semibold mb-4">
+                Modo Conversa da Lua
+              </h3>
+              <p className="text-white/70 text-sm mb-4">
+                Entre em uma experiência imersiva de conversa com a Lua
+              </p>
+              <button
+                onClick={() => setShowLuaConversation(true)}
+                className="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all duration-300"
+              >
+                Iniciar Modo Conversa 🌙
+              </button>
+              <p className="text-white/50 text-xs mt-2">
+                Ou pressione Alt + L
+              </p>
+            </div>
           </div>
         </div>
-
-        {/* Hidden audio element for playback */}
-        <audio ref={audioRef} className="hidden" />
       </div>
+      
+      {/* Hidden audio element */}
+      <audio ref={audioRef} style={{ display: 'none' }} />
     </div>
   )
 }

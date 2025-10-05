@@ -1,0 +1,57 @@
+# Backend - FastAPI com TTS Engine
+FROM python:3.11-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    make \
+    cmake \
+    wget \
+    curl \
+    git \
+    ffmpeg \
+    libsndfile1 \
+    libsndfile1-dev \
+    portaudio19-dev \
+    python3-pyaudio \
+    espeak-ng \
+    libespeak-ng-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create working directory
+WORKDIR /app
+
+# Copy requirements files
+COPY requirements.txt requirements_tts.txt ./
+
+# Install Python dependencies
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir -r requirements_tts.txt
+
+# Download TTS models during build to cache them
+RUN python -c "from TTS.api import TTS; TTS('tts_models/multilingual/multi-dataset/xtts_v2', progress_bar=False)" || \
+    python -c "from TTS.api import TTS; TTS('tts_models/en/ljspeech/tacotron2-DDC', progress_bar=False)" || \
+    echo "Model download will happen at runtime"
+
+# Copy application code
+COPY . .
+
+# Create necessary directories
+RUN mkdir -p /app/data /app/logs /app/temp
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV TTS_CACHE_DIR=/app/.cache/tts
+
+# Expose port
+EXPOSE 5000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
+  CMD curl -f http://localhost:5000/health || exit 1
+
+# Run application
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "5000", "--reload"]

@@ -1,73 +1,77 @@
-# Dockerfile for Lua TTS System with Kokoro-82M
-# Compatible with Windows and Linux
+# ==============================================================
+# 🧠 Lua TTS System - Kokoro-82M (PT-BR)
+# Author: Kalel
+# Compatible with Windows, Linux and Docker Desktop
+# ==============================================================
 
 FROM python:3.11-slim
 
-# Set working directory
+# 1️⃣ Working directory
 WORKDIR /app
 
-# Install system dependencies
+# 2️⃣ Install system dependencies
 RUN apt-get update && apt-get install -y \
-    # Audio libraries
     ffmpeg \
     libsndfile1 \
     libsndfile1-dev \
-    # Speech synthesis
     espeak-ng \
-    # Build tools
     build-essential \
-    # Network tools
     curl \
     wget \
-    # Clean up
+    locales \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Set environment variables
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    LANG=pt_BR.UTF-8 \
+# 3️⃣ Configure environment and locale
+RUN sed -i '/pt_BR.UTF-8/s/^# //g' /etc/locale.gen && locale-gen
+ENV LANG=pt_BR.UTF-8 \
     LC_ALL=pt_BR.UTF-8 \
-    TZ=America/Sao_Paulo
+    TZ=America/Sao_Paulo \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=0 \
+    PIP_INDEX_URL=https://pypi.org/simple \
+    PYTHONPATH=/app
 
-# Copy requirements first for better caching
+# 4️⃣ Copy dependency list
 COPY requirements.txt .
 
-# Install Python dependencies
-RUN pip install --upgrade pip setuptools wheel && \
-    pip install -r requirements.txt && \
-    # Install Kokoro separately to ensure latest version
-    pip install "kokoro>=0.9.4" && \
-    # Clean pip cache
-    pip cache purge
+# 5️⃣ Optional: allocate dummy swap (no swapon to avoid Docker error)
+RUN fallocate -l 2G /swapfile && chmod 600 /swapfile || true
 
-# Copy application code
+# 6️⃣ Install dependencies (optimized for CPU)
+RUN python -m pip install --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt --index-url https://pypi.org/simple && \
+    pip install --no-cache-dir torch==2.5.0+cpu --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir "kokoro>=0.9.3" && \
+    pip install --no-cache-dir "misaki==0.9.3" && \
+    pip install --no-cache-dir "espeakng==1.0.2" && \
+    (pip cache purge || true)
+
+# 7️⃣ Remove temporary swap
+RUN rm -f /swapfile || true
+
+# 8️⃣ Copy backend and frontend
 COPY backend/ /app/backend/
 COPY frontend/ /app/frontend/
 
-# Create necessary directories
-RUN mkdir -p /app/backend/logs \
-    /app/backend/temp \
-    /app/backend/models \
-    /app/backend/voices
-
-# Create .env file with defaults
-RUN echo "API_HOST=0.0.0.0" > /app/backend/.env && \
+# 9️⃣ Create folders and default environment configuration
+RUN mkdir -p /app/backend/{logs,temp,models,voices} && \
+    echo "API_HOST=0.0.0.0" > /app/backend/.env && \
     echo "API_PORT=8000" >> /app/backend/.env && \
     echo "USE_GPU=false" >> /app/backend/.env && \
-    echo "LOG_LEVEL=INFO" >> /app/backend/.env
+    echo "LOG_LEVEL=INFO" >> /app/backend/.env && \
+    echo "KOKORO_MODEL=hexgrad/Kokoro-82M" >> /app/backend/.env && \
+    echo "KOKORO_LANGUAGE=pt" >> /app/backend/.env && \
+    echo "KOKORO_VOICE=af_heart" >> /app/backend/.env
 
-# Expose port
+# 🔊 10️⃣ Expose API port
 EXPOSE 8000
 
-# Health check
+# 11️⃣ Healthcheck
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Set Python path
-ENV PYTHONPATH=/app:$PYTHONPATH
-
-# Run the application
+# 🚀 12️⃣ Start FastAPI server
 CMD ["python", "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

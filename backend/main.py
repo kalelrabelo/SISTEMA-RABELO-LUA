@@ -22,11 +22,14 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 from backend.core import settings, logger
 from backend.modules.lua import LuaAssistant
-from backend.modules.tts.kokoro_engine import KokoroEngine
+# Use the fixed version of TTS engine
+from backend.modules.tts.kokoro_engine_fixed import KokoroEngine
+from backend.modules.stt.speech_recognition import SpeechRecognizer
 
 # Global instances
 lua_assistant: Optional[LuaAssistant] = None
 tts_engine: Optional[KokoroEngine] = None
+stt_engine: Optional[SpeechRecognizer] = None
 
 
 # Pydantic models
@@ -54,7 +57,7 @@ class ChatRequest(BaseModel):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager"""
-    global lua_assistant, tts_engine
+    global lua_assistant, tts_engine, stt_engine
     
     # Startup
     logger.info("=" * 50)
@@ -66,6 +69,10 @@ async def lifespan(app: FastAPI):
         logger.info("Initializing TTS Engine...")
         tts_engine = KokoroEngine()
         await tts_engine.initialize()
+        
+        # Initialize STT Engine
+        logger.info("Initializing STT Engine...")
+        stt_engine = SpeechRecognizer()
         
         # Initialize Lua Assistant
         logger.info("Initializing Lua Assistant...")
@@ -311,6 +318,112 @@ async def clear_chat_history():
         
     lua_assistant.clear_conversation()
     return {"success": True, "message": "Chat history cleared"}
+
+
+# ============= STT Endpoints =============
+
+@app.post("/api/stt/transcribe")
+async def transcribe_audio(
+    file: UploadFile = File(...),
+    provider: Optional[str] = Query(None, description="STT provider"),
+    language: Optional[str] = Query("pt-BR", description="Language code")
+):
+    """Transcribe audio file to text"""
+    if not stt_engine:
+        raise HTTPException(status_code=503, detail="STT engine not initialized")
+    
+    try:
+        # Read audio file
+        audio_data = await file.read()
+        
+        # Transcribe
+        result = await stt_engine.transcribe_audio(
+            audio_data=audio_data,
+            provider=provider,
+            language=language
+        )
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Transcription failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.websocket("/ws/conversation")
+async def websocket_conversation(websocket):
+    """WebSocket endpoint for real-time conversation"""
+    await websocket.accept()
+    logger.info("WebSocket connection established")
+    
+    try:
+        while True:
+            # Receive message from client
+            data = await websocket.receive_json()
+            
+            if data.get("type") == "audio":
+                # Handle audio data for STT
+                audio_data = base64.b64decode(data["audio"])
+                
+                # Transcribe audio
+                result = await stt_engine.transcribe_audio(audio_data)
+                
+                if result.get("success"):
+                    transcript = result["transcript"]
+                    
+                    # Send transcript to client
+                    await websocket.send_json({
+                        "type": "transcript",
+                        "text": transcript
+                    })
+                    
+                    # Get Lua response
+                    response = await lua_assistant.process_message(
+                        message=transcript,
+                        user_id=data.get("user_id", "websocket-user")
+                    )
+                    
+                    # Send text response
+                    await websocket.send_json({
+                        "type": "response",
+                        "text": response["response"]
+                    })
+                    
+                    # Generate and send audio response
+                    audio_chunks = []
+                    async for chunk in tts_engine.generate_speech(
+                        text=response["response"],
+                        voice="luna"
+                    ):
+                        audio_chunks.append(chunk)
+                    
+                    # Combine chunks and send
+                    audio_data = b"".join(audio_chunks)
+                    await websocket.send_json({
+                        "type": "audio",
+                        "data": base64.b64encode(audio_data).decode("utf-8")
+                    })
+                    
+            elif data.get("type") == "text":
+                # Handle text message
+                message = data["message"]
+                
+                # Get Lua response
+                response = await lua_assistant.process_message(
+                    message=message,
+                    user_id=data.get("user_id", "websocket-user")
+                )
+                
+                # Send response
+                await websocket.send_json({
+                    "type": "response",
+                    "text": response["response"]
+                })
+                
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+    finally:
+        logger.info("WebSocket connection closed")
 
 
 if __name__ == "__main__":
